@@ -164,7 +164,10 @@ window.TCDash = {
 
   renderStats(summary) {
     const today = new Date().toDateString();
-    const activeToday = summary.filter(s => s.student.last_active && new Date(s.student.last_active).toDateString() === today).length;
+    const activeToday = summary.filter(s => {
+      const d = this.parseTs(s.student.last_active);
+      return d && d.toDateString() === today;
+    }).length;
 
     let totalPct = 0, scoreCount = 0, totalScore = 0;
     for (const s of summary) {
@@ -252,11 +255,23 @@ window.TCDash = {
     }).catch(() => prompt('Copy this link:', `https://www.apcsexamprep.com/pages/join?code=${this.classCode}`));
   },
 
+  // Timestamps from the API are explicit UTC. Older rows may arrive without a
+  // timezone marker, which the browser would otherwise read as local time and
+  // place in the future — that is what produced "-1d ago".
+  parseTs(dt) {
+    if (!dt) return null;
+    const normalised = /Z$|[+-]\d{2}:\d{2}$/.test(dt) ? dt : dt.replace(' ', 'T') + 'Z';
+    const d = new Date(normalised);
+    return isNaN(d) ? null : d;
+  },
+
   formatDate(dt) {
-    if (!dt) return 'Never';
-    const d = new Date(dt);
-    const today = new Date();
-    const diff = Math.floor((today - d) / 86400000);
+    const d = this.parseTs(dt);
+    if (!d) return 'Never';
+    // Compare calendar days, and never render a negative age: a clock a few
+    // minutes ahead should read "Today", not "-1d ago".
+    const startOfDay = x => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate());
+    const diff = Math.max(0, Math.round((startOfDay(new Date()) - startOfDay(d)) / 86400000));
     if (diff === 0) return 'Today';
     if (diff === 1) return 'Yesterday';
     if (diff < 7) return diff + 'd ago';

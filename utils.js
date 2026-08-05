@@ -107,6 +107,34 @@ function sanitize(str, maxLen = 100) {
   return str.trim().slice(0, maxLen);
 }
 
+// ── TIMESTAMPS ────────────────────────────────────────────────────────────────
+// SQLite's datetime('now') produces "2026-08-05 19:30:00" — UTC, but with no
+// timezone marker and a space instead of a T. `new Date()` in a browser parses
+// that shape as *local* time, so every teacher west of UTC saw timestamps
+// shifted into the future, which is what produced "-1d ago" in the gradebook.
+//
+// New writes use nowIso(). toIso() repairs the older rows on the way out, so
+// the fix covers data already in the database rather than only what happens
+// next. Analytics day-bucketing uses substr(ts, 1, 10) and is unaffected by
+// either shape.
+function nowIso() { return new Date().toISOString(); }
+
+function toIso(value) {
+  if (!value) return value;
+  if (typeof value !== 'string') return value;
+  if (value.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(value)) return value; // already explicit
+  const match = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/.exec(value);
+  return match ? `${match[1]}T${match[2]}Z` : value;
+}
+
+/** Returns a copy of `row` with the named fields normalised to explicit UTC. */
+function isoFields(row, fields) {
+  if (!row) return row;
+  const out = Object.assign({}, row);
+  for (const f of fields) if (f in out) out[f] = toIso(out[f]);
+  return out;
+}
+
 // ── COURSE PREFIX for class codes ─────────────────────────────────────────────
 const COURSE_PREFIXES = {
   'ap-cybersecurity': 'CYBER',
@@ -118,4 +146,5 @@ module.exports = {
   newId, generateClassCode, signTeacherToken, verifyTeacherToken,
   signStudentToken, verifyStudentToken, COURSES, COURSE_PREFIXES,
   isValidEmail, isValidPin, isValidClassCode, sanitize,
+  nowIso, toIso, isoFields,
 };

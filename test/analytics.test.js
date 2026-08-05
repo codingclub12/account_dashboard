@@ -205,6 +205,29 @@ function dayAgo(n) {
   check('summary leaks no class codes', !JSON.stringify(sum.json).includes(code));
   check('summary leaks no student names', !JSON.stringify(sum.json).includes('Avery'));
 
+  console.log('\n── timestamps are explicit UTC ──');
+  const { toIso } = require(path.join(ROOT, 'utils.js'));
+  check('space-separated SQLite time gets T and Z',
+    toIso('2026-08-05 19:30:00') === '2026-08-05T19:30:00Z', toIso('2026-08-05 19:30:00'));
+  check('already-ISO values pass through',
+    toIso('2026-08-05T19:30:00.123Z') === '2026-08-05T19:30:00.123Z');
+  check('null passes through', toIso(null) === null);
+
+  const clsDetail = await api('GET', `/api/teacher/classes/${code}`, null, tAuth);
+  const everyStudentIso = clsDetail.json.students.every(s =>
+    (!s.created_at || /Z$/.test(s.created_at)) && (!s.last_active || /Z$/.test(s.last_active)));
+  check('class detail returns UTC-marked timestamps', everyStudentIso, clsDetail.json.students);
+
+  const dash = await api('GET', `/api/teacher/classes/${code}/progress`, null, tAuth);
+  check('dashboard last_active is UTC-marked',
+    dash.json.summary.every(s => !s.student.last_active || /Z$/.test(s.student.last_active)),
+    dash.json.summary.map(s => s.student.last_active));
+
+  // The bug this fixes: a bare "YYYY-MM-DD HH:MM:SS" is parsed as local time by
+  // the browser, landing in the future for anyone west of UTC.
+  const active = dash.json.summary.map(s => s.student.last_active).filter(Boolean)[0];
+  check('parsed timestamp is not in the future', new Date(active) <= new Date(Date.now() + 1000), active);
+
   console.log('\n── admin token unset fails closed ──');
   const saved = process.env.ADMIN_TOKEN;
   delete process.env.ADMIN_TOKEN;

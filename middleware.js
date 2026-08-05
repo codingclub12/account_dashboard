@@ -1,5 +1,5 @@
 'use strict';
-const { verifyTeacherToken, verifyStudentToken } = require('./utils');
+const { verifyTeacherToken, verifyStudentToken, nowIso } = require('./utils');
 const db = require('./db');
 
 function requireTeacher(req, res, next) {
@@ -15,7 +15,7 @@ function requireTeacher(req, res, next) {
     // Record the visit. This is what makes teacher retention measurable:
     // last_seen advances whenever a teacher loads their dashboard, not just
     // when they type a password.
-    db.prepare("UPDATE teachers SET last_seen = datetime('now') WHERE id = ?").run(teacher.id);
+    db.prepare("UPDATE teachers SET last_seen = ? WHERE id = ?").run(nowIso(), teacher.id);
     req.teacher = teacher;
     next();
   } catch (e) {
@@ -33,7 +33,7 @@ function requireStudent(req, res, next) {
     const student = db.prepare('SELECT id, class_id, display_name FROM students WHERE id = ?').get(payload.id);
     if (!student) return res.status(401).json({ error: 'Student not found' });
     // Update last_active
-    db.prepare("UPDATE students SET last_active = datetime('now') WHERE id = ?").run(student.id);
+    db.prepare("UPDATE students SET last_active = ? WHERE id = ?").run(nowIso(), student.id);
     req.student = student;
     next();
   } catch (e) {

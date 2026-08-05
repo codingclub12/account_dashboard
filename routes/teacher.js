@@ -7,6 +7,7 @@ const { requireTeacher } = require('../middleware');
 const {
   newId, generateClassCode, signTeacherToken,
   isValidEmail, sanitize, COURSES, COURSE_PREFIXES,
+  nowIso, toIso, isoFields,
 } = require('../utils');
 
 // ── REGISTER ──────────────────────────────────────────────────────────────────
@@ -48,8 +49,8 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, teacher.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
-    db.prepare("UPDATE teachers SET last_login = datetime('now'), last_seen = datetime('now') WHERE id = ?")
-      .run(teacher.id);
+    db.prepare("UPDATE teachers SET last_login = ?, last_seen = ? WHERE id = ?")
+      .run(nowIso(), nowIso(), teacher.id);
 
     const token = signTeacherToken(teacher);
     res.json({ token, teacher: { id: teacher.id, email: teacher.email, name: teacher.name, school: teacher.school } });
@@ -72,7 +73,7 @@ router.get('/classes', requireTeacher, (req, res) => {
     FROM classes c
     WHERE c.teacher_id = ?
     ORDER BY c.created_at DESC
-  `).all(req.teacher.id);
+  `).all(req.teacher.id).map(c => isoFields(c, ['created_at']));
   res.json({ classes });
 });
 
@@ -115,9 +116,9 @@ router.get('/classes/:code', requireTeacher, (req, res) => {
   const students = db.prepare(`
     SELECT id, display_name, student_ref, created_at, last_active
     FROM students WHERE class_id = ? ORDER BY display_name
-  `).all(cls.id);
+  `).all(cls.id).map(s => isoFields(s, ['created_at', 'last_active']));
 
-  res.json({ class: cls, students });
+  res.json({ class: isoFields(cls, ['created_at']), students });
 });
 
 // ── CLASS PROGRESS DASHBOARD ──────────────────────────────────────────────────
@@ -147,7 +148,7 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
       score: p.score,
       attempts: p.attempts,
       confidence: p.confidence,
-      completed_at: p.completed_at,
+      completed_at: toIso(p.completed_at),
     };
   }
 
@@ -175,13 +176,13 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
       };
     }
     return {
-      student: { id: s.id, name: s.display_name, ref: s.student_ref, last_active: s.last_active },
+      student: { id: s.id, name: s.display_name, ref: s.student_ref, last_active: toIso(s.last_active) },
       units: unitSummaries,
       detail: sp,
     };
   });
 
-  res.json({ class: cls, course_config: courseConfig, summary });
+  res.json({ class: isoFields(cls, ['created_at']), course_config: courseConfig, summary });
 });
 
 // ── CSV EXPORT ────────────────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ router.get('/classes/:code/export', requireTeacher, (req, res) => {
   const header = 'Name,Student ID,Unit,Lesson,Activity,Completed,Score,Attempts,Confidence,Completed At,Last Active\n';
   const lines = rows.map(r =>
     `"${r.display_name}","${r.student_ref || ''}","${r.unit || ''}","${r.lesson || ''}","${r.activity_type || ''}",` +
-    `${r.completed ? 'Yes' : 'No'},${r.score ?? ''},${r.attempts ?? ''},${r.confidence ?? ''},"${r.completed_at || ''}","${r.last_active || ''}"`
+    `${r.completed ? 'Yes' : 'No'},${r.score ?? ''},${r.attempts ?? ''},${r.confidence ?? ''},"${toIso(r.completed_at) || ''}","${toIso(r.last_active) || ''}"`
   ).join('\n');
 
   res.setHeader('Content-Type', 'text/csv');

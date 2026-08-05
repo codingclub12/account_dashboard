@@ -4,7 +4,9 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const db = require('../db');
 const { requireStudent } = require('../middleware');
-const { newId, signStudentToken, isValidPin, sanitize, COURSES } = require('../utils');
+const { newId, signStudentToken, isValidPin, sanitize, COURSES, nowIso, isoFields } = require('../utils');
+
+const PROGRESS_TIMESTAMPS = ['opened_at', 'completed_at', 'updated_at'];
 
 // ── JOIN CLASS (first time) ───────────────────────────────────────────────────
 router.post('/join', async (req, res) => {
@@ -61,7 +63,7 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(String(pin), student.pin_hash);
     if (!valid) return res.status(401).json({ error: 'Incorrect PIN' });
 
-    db.prepare("UPDATE students SET last_active = datetime('now') WHERE id = ?").run(student.id);
+    db.prepare("UPDATE students SET last_active = ? WHERE id = ?").run(nowIso(), student.id);
     const token = signStudentToken(student, cls.class_code);
 
     res.json({
@@ -85,7 +87,7 @@ router.get('/progress', requireStudent, (req, res) => {
   const records = db.prepare(`
     SELECT course, unit, lesson, activity_type, completed, score, attempts, confidence, completed_at, updated_at
     FROM progress WHERE student_id = ? ORDER BY unit, lesson, activity_type
-  `).all(req.student.id);
+  `).all(req.student.id).map(r => isoFields(r, PROGRESS_TIMESTAMPS));
 
   // Build structured map for easy frontend consumption
   const map = {};
@@ -160,7 +162,7 @@ router.post('/progress', requireStudent, (req, res) => {
       WHERE student_id = ? AND course = ? AND unit = ? AND lesson = ? AND activity_type = ?
     `).get(req.student.id, course, unit, lesson, activity_type);
 
-    res.json({ ok: true, progress: record });
+    res.json({ ok: true, progress: isoFields(record, PROGRESS_TIMESTAMPS) });
   } catch (e) {
     console.error('Save progress error:', e);
     res.status(500).json({ error: 'Failed to save progress' });
