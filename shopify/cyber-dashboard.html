@@ -1,0 +1,280 @@
+<!-- APCSExamPrep Teacher Dashboard — /pages/cyber-dashboard -->
+<style>
+#tcdash-wrap{all:initial!important;display:block!important;font-family:'Georgia',serif!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;}
+#tcdash-wrap *{box-sizing:border-box!important;font-family:'Georgia',serif!important;}
+.tcdash-page{background:#f8f7ff!important;min-height:100vh!important;padding:0 0 60px!important;}
+.tcdash-header{background:#1E1B4B!important;padding:16px 24px!important;}
+.tcdash-header-inner{max-width:1100px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:12px!important;}
+.tcdash-header .class-code{font-size:24px!important;font-weight:700!important;color:#E8A020!important;-webkit-text-fill-color:#E8A020!important;letter-spacing:2px!important;font-family:monospace!important;}
+.tcdash-header .class-name{font-size:15px!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;margin-top:2px!important;}
+.tcdash-actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important;}
+.tcdash-btn{padding:8px 16px!important;border-radius:6px!important;font-size:13px!important;font-weight:600!important;cursor:pointer!important;text-decoration:none!important;display:inline-block!important;border:none!important;}
+.tcdash-btn.outline{background:transparent!important;border:1px solid #4c1d95!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;}
+.tcdash-btn.amber{background:#E8A020!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.tcdash-btn.purple{background:#6B21A8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;}
+.tcdash-body{max-width:1100px!important;margin:0 auto!important;padding:24px 16px!important;}
+/* Stats bar */
+.tcdash-stats{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:16px!important;margin-bottom:24px!important;}
+.tcdash-stat{background:#fff!important;border-radius:10px!important;padding:18px!important;text-align:center!important;box-shadow:0 2px 8px rgba(107,33,168,.08)!important;}
+.tcdash-stat .sv{font-size:28px!important;font-weight:700!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;}
+.tcdash-stat .sl{font-size:12px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;margin-top:4px!important;text-transform:uppercase!important;letter-spacing:.5px!important;}
+/* Progress table */
+.tcdash-table-wrap{background:#fff!important;border-radius:10px!important;box-shadow:0 2px 12px rgba(107,33,168,.08)!important;overflow:auto!important;}
+.tcdash-table{width:100%!important;border-collapse:collapse!important;font-size:14px!important;}
+.tcdash-table th{background:#1E1B4B!important;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:12px 14px!important;text-align:left!important;font-weight:600!important;font-size:12px!important;text-transform:uppercase!important;letter-spacing:.5px!important;white-space:nowrap!important;}
+.tcdash-table th.center{text-align:center!important;}
+.tcdash-table td{padding:11px 14px!important;border-bottom:1px solid #f3f4f6!important;vertical-align:middle!important;}
+.tcdash-table tr:last-child td{border-bottom:none!important;}
+.tcdash-table tr:hover td{background:#f8f7ff!important;}
+.student-name{font-weight:600!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.student-ref{font-size:12px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;}
+.last-active{font-size:12px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+/* Progress cell */
+.prog-cell{text-align:center!important;}
+.prog-bar-wrap{width:100%!important;height:6px!important;background:#e5e7eb!important;border-radius:3px!important;margin:4px 0!important;}
+.prog-bar{height:6px!important;border-radius:3px!important;background:#6B21A8!important;}
+.prog-pct{font-size:12px!important;font-weight:700!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;}
+.prog-score{font-size:11px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+/* Activity cells */
+.act-cell{text-align:center!important;width:48px!important;}
+.act-check{width:24px!important;height:24px!important;border-radius:50%!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:12px!important;}
+.act-done{background:#D1FAE5!important;color:#065F46!important;-webkit-text-fill-color:#065F46!important;}
+.act-none{background:#F3F4F6!important;color:#D1D5DB!important;-webkit-text-fill-color:#D1D5DB!important;}
+.act-score{font-size:11px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;display:block!important;}
+/* Lesson group header */
+.lesson-group-header td{background:#EDE9FE!important;font-weight:700!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;font-size:12px!important;padding:8px 14px!important;}
+/* Empty / loading */
+.tcdash-empty{text-align:center!important;padding:48px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;}
+.tcdash-loading{text-align:center!important;padding:48px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+/* Share box */
+.tcdash-share{background:#EDE9FE!important;border-radius:10px!important;padding:16px 20px!important;margin-bottom:20px!important;display:flex!important;align-items:center!important;gap:16px!important;flex-wrap:wrap!important;}
+.tcdash-share .share-label{font-size:14px!important;color:#4c1d95!important;-webkit-text-fill-color:#4c1d95!important;font-weight:600!important;}
+.tcdash-share .share-code{font-size:20px!important;font-weight:700!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;font-family:monospace!important;letter-spacing:2px!important;}
+.tcdash-share .share-url{font-size:13px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+@media(max-width:700px){
+  .tcdash-stats{grid-template-columns:repeat(2,1fr)!important;}
+  .tcdash-table{font-size:12px!important;}
+}
+</style>
+
+<div id="tcdash-wrap">
+<div class="tcdash-page">
+  <div id="tcdash-not-auth" style="display:none;text-align:center;padding:60px 20px;">
+    <div style="font-size:20px;font-weight:700;color:#1E1B4B;margin-bottom:12px;">Sign in to view your dashboard</div>
+    <a href="/pages/cyber-class" style="display:inline-block;background:#6B21A8;color:#fff;padding:12px 24px;border-radius:8px;font-weight:700;text-decoration:none;">Go to Teacher Portal</a>
+  </div>
+
+  <div id="tcdash-main" style="display:none">
+    <div class="tcdash-header">
+      <div class="tcdash-header-inner">
+        <div>
+          <div class="class-code" id="dash-code"></div>
+          <div class="class-name" id="dash-classname"></div>
+        </div>
+        <div class="tcdash-actions">
+          <a class="tcdash-btn outline" href="/pages/cyber-class">&larr; All Classes</a>
+          <button class="tcdash-btn amber" onclick="TCDash.exportCSV()">Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tcdash-body">
+      <!-- Share box -->
+      <div class="tcdash-share">
+        <div>
+          <div class="share-label">Share with students</div>
+          <div class="share-url">apcsexamprep.com/pages/join?code=<span id="share-code-url"></span></div>
+        </div>
+        <div class="share-code" id="share-code-display"></div>
+        <button class="tcdash-btn purple" onclick="TCDash.copyJoinLink()">Copy Join Link</button>
+      </div>
+
+      <!-- Stats -->
+      <div class="tcdash-stats">
+        <div class="tcdash-stat"><div class="sv" id="stat-students">-</div><div class="sl">Students</div></div>
+        <div class="tcdash-stat"><div class="sv" id="stat-active">-</div><div class="sl">Active Today</div></div>
+        <div class="tcdash-stat"><div class="sv" id="stat-completion">-</div><div class="sl">Avg Completion</div></div>
+        <div class="tcdash-stat"><div class="sv" id="stat-score">-</div><div class="sl">Avg Quiz Score</div></div>
+      </div>
+
+      <!-- Progress table -->
+      <div id="tcdash-loading" class="tcdash-loading">Loading class progress&hellip;</div>
+      <div class="tcdash-table-wrap" id="tcdash-table-wrap" style="display:none!important;">
+        <table class="tcdash-table" id="tcdash-table">
+          <thead id="tcdash-thead"></thead>
+          <tbody id="tcdash-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const API = 'https://progress.apcsexamprep.com';
+
+const UNIT_LESSONS = {
+  'unit-1': [
+    { id:'1.1', label:'1.1 Social Engineering' },
+    { id:'1.2', label:'1.2 Password Attacks' },
+    { id:'1.3', label:'1.3 Public Networks' },
+    { id:'1.4', label:'1.4 AI Attacks' },
+    { id:'1.5', label:'1.5 AI Defense' },
+  ],
+};
+const ACTIVITIES = ['lesson','exercise-1','exercise-2','quiz'];
+const ACT_SHORT = { 'lesson':'L', 'exercise-1':'E1', 'exercise-2':'E2', 'quiz':'Q' };
+
+window.TCDash = {
+  classCode: '',
+  data: null,
+
+  async init() {
+    const token = localStorage.getItem('apcse_teacher_token');
+    if (!token) { document.getElementById('tcdash-not-auth').style.display='block'; return; }
+
+    // Get class code from URL
+    const params = new URLSearchParams(window.location.search);
+    this.classCode = params.get('code') || '';
+    if (!this.classCode) { document.getElementById('tcdash-not-auth').style.display='block'; return; }
+
+    document.getElementById('tcdash-main').style.display = 'block';
+    document.getElementById('dash-code').textContent = this.classCode;
+    document.getElementById('share-code-display').textContent = this.classCode;
+    document.getElementById('share-code-url').textContent = this.classCode;
+
+    await this.loadProgress(token);
+  },
+
+  async loadProgress(token) {
+    try {
+      const r = await fetch(`${API}/api/teacher/classes/${this.classCode}/progress`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (r.status === 401) { localStorage.removeItem('apcse_teacher_token'); location.href='/pages/cyber-class'; return; }
+      const d = await r.json();
+      this.data = d;
+      document.getElementById('dash-classname').textContent = d.class.class_name + ' \u00B7 ' + this.formatCourse(d.class.course);
+      this.renderStats(d.summary);
+      this.renderTable(d.summary, d.course_config);
+    } catch(e) {
+      document.getElementById('tcdash-loading').textContent = 'Failed to load data. Try refreshing.';
+    }
+  },
+
+  renderStats(summary) {
+    const today = new Date().toDateString();
+    const activeToday = summary.filter(s => s.student.last_active && new Date(s.student.last_active).toDateString() === today).length;
+
+    let totalPct = 0, scoreCount = 0, totalScore = 0;
+    for (const s of summary) {
+      const unit1 = s.units['unit-1'];
+      if (unit1) { totalPct += unit1.pct; if (unit1.avg_score != null) { totalScore += unit1.avg_score; scoreCount++; } }
+    }
+
+    document.getElementById('stat-students').textContent = summary.length;
+    document.getElementById('stat-active').textContent = activeToday;
+    document.getElementById('stat-completion').textContent = summary.length ? Math.round(totalPct / summary.length) + '%' : '-';
+    document.getElementById('stat-score').textContent = scoreCount ? Math.round(totalScore / scoreCount) + '%' : '-';
+  },
+
+  renderTable(summary, courseCfg) {
+    document.getElementById('tcdash-loading').style.display = 'none';
+    const wrap = document.getElementById('tcdash-table-wrap');
+    wrap.style.display = 'block';
+
+    const lessons = UNIT_LESSONS['unit-1'] || [];
+
+    // Build header
+    const thead = document.getElementById('tcdash-thead');
+    thead.innerHTML = `
+      <tr>
+        <th>Student</th>
+        <th class="center">Unit 1</th>
+        ${lessons.map(l =>
+          ACTIVITIES.map(a => `<th class="center" style="font-size:10px!important;white-space:nowrap!important;">${l.id}<br>${ACT_SHORT[a]}</th>`).join('')
+        ).join('')}
+        <th>Last Active</th>
+      </tr>
+    `;
+
+    const tbody = document.getElementById('tcdash-tbody');
+    if (!summary.length) {
+      tbody.innerHTML = `<tr><td colspan="100" class="tcdash-empty">No students have joined yet. Share the class code above.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = summary.map(s => {
+      const unit1 = s.units['unit-1'] || { pct: 0, avg_score: null };
+      const lastActive = s.student.last_active ? this.formatDate(s.student.last_active) : 'Never';
+
+      const actCells = lessons.map(lesson =>
+        ACTIVITIES.map(act => {
+          const rec = s.detail?.['unit-1']?.[lesson.id]?.[act];
+          const done = rec?.completed;
+          const score = rec?.score != null ? rec.score + '%' : '';
+          return `<td class="act-cell">
+            <span class="act-check ${done ? 'act-done' : 'act-none'}">${done ? '\u2713' : '\u25CB'}</span>
+            ${score ? `<span class="act-score">${score}</span>` : ''}
+          </td>`;
+        }).join('')
+      ).join('');
+
+      return `<tr>
+        <td>
+          <div class="student-name">${this.esc(s.student.name)}</div>
+          ${s.student.ref ? `<div class="student-ref">${this.esc(s.student.ref)}</div>` : ''}
+        </td>
+        <td class="prog-cell">
+          <div class="prog-pct">${unit1.pct}%</div>
+          <div class="prog-bar-wrap"><div class="prog-bar" style="width:${unit1.pct}%"></div></div>
+          ${unit1.avg_score != null ? `<div class="prog-score">Avg: ${unit1.avg_score}%</div>` : ''}
+        </td>
+        ${actCells}
+        <td class="last-active">${lastActive}</td>
+      </tr>`;
+    }).join('');
+  },
+
+  async exportCSV() {
+    const token = localStorage.getItem('apcse_teacher_token');
+    window.location.href = `${API}/api/teacher/classes/${this.classCode}/export?token=${token}`;
+    // Note: The export endpoint uses query param token for download links
+  },
+
+  copyJoinLink() {
+    const url = `https://www.apcsexamprep.com/pages/join?code=${this.classCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.querySelector('[onclick="TCDash.copyJoinLink()"]');
+      const orig = btn.textContent;
+      btn.textContent = '\u2713 Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 2000);
+    }).catch(() => prompt('Copy this link:', `https://www.apcsexamprep.com/pages/join?code=${this.classCode}`));
+  },
+
+  formatDate(dt) {
+    if (!dt) return 'Never';
+    const d = new Date(dt);
+    const today = new Date();
+    const diff = Math.floor((today - d) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    if (diff < 7) return diff + 'd ago';
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  },
+
+  formatCourse(c) {
+    return { 'ap-cybersecurity':'AP Cybersecurity', 'ap-csa':'AP CSA', 'ap-csp':'AP CSP' }[c] || c;
+  },
+
+  esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  },
+};
+
+// Support token in query for CSV export
+const urlToken = new URLSearchParams(window.location.search).get('token');
+if (urlToken) localStorage.setItem('apcse_teacher_token', urlToken);
+
+document.addEventListener('DOMContentLoaded', () => TCDash.init());
+</script>

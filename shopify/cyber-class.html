@@ -1,0 +1,323 @@
+<!-- APCSExamPrep Teacher Class Portal — /pages/cyber-class -->
+<style>
+#tcportal-wrap{all:initial!important;display:block!important;font-family:'Georgia',serif!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;}
+#tcportal-wrap *{box-sizing:border-box!important;font-family:'Georgia',serif!important;}
+.tcp-page{background:#f8f7ff!important;min-height:100vh!important;padding:0 0 60px!important;}
+.tcp-hero{background:#1E1B4B!important;padding:40px 24px!important;text-align:center!important;}
+.tcp-hero h1{font-size:28px!important;font-weight:700!important;color:#fff!important;-webkit-text-fill-color:#fff!important;margin:0 0 8px!important;}
+.tcp-hero p{color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;font-size:16px!important;margin:0!important;}
+.tcp-body{max-width:560px!important;margin:0 auto!important;padding:32px 20px!important;}
+.tcp-card{background:#fff!important;border-radius:12px!important;box-shadow:0 4px 24px rgba(107,33,168,.1)!important;padding:36px!important;margin-bottom:24px!important;}
+.tcp-tabs{display:flex!important;border-bottom:2px solid #e5e7eb!important;margin-bottom:28px!important;}
+.tcp-tab{flex:1!important;padding:10px!important;text-align:center!important;font-size:14px!important;font-weight:600!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;cursor:pointer!important;border:none!important;background:none!important;border-bottom:3px solid transparent!important;margin-bottom:-2px!important;}
+.tcp-tab.active{color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;border-bottom-color:#6B21A8!important;}
+.tcp-form{display:none!important;}
+.tcp-form.active{display:block!important;}
+.tcp-label{display:block!important;font-size:13px!important;font-weight:600!important;color:#374151!important;-webkit-text-fill-color:#374151!important;margin-bottom:6px!important;margin-top:16px!important;}
+.tcp-input{width:100%!important;padding:12px 14px!important;border:2px solid #e5e7eb!important;border-radius:8px!important;font-size:15px!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;background:#fff!important;outline:none!important;transition:border-color .2s!important;}
+.tcp-input:focus{border-color:#6B21A8!important;}
+.tcp-btn{width:100%!important;padding:14px!important;background:#6B21A8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:none!important;border-radius:8px!important;font-size:16px!important;font-weight:700!important;cursor:pointer!important;margin-top:24px!important;transition:background .2s!important;}
+.tcp-btn:hover{background:#5B1898!important;}
+.tcp-btn:disabled{background:#c4b5fd!important;cursor:not-allowed!important;}
+.tcp-btn.amber{background:#E8A020!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.tcp-btn.amber:hover{background:#D97706!important;}
+.tcp-error{background:#FEE2E2!important;color:#991b1b!important;-webkit-text-fill-color:#991b1b!important;padding:12px 14px!important;border-radius:8px!important;font-size:14px!important;margin-top:16px!important;display:none!important;}
+.tcp-section-title{font-size:20px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin-bottom:20px!important;padding-bottom:12px!important;border-bottom:2px solid #EDE9FE!important;}
+/* Dashboard state */
+.tcp-teacher-bar{background:#1E1B4B!important;padding:14px 20px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;}
+.tcp-teacher-bar .tname{color:#fff!important;-webkit-text-fill-color:#fff!important;font-weight:700!important;}
+.tcp-teacher-bar .tschool{color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;font-size:13px!important;}
+.tcp-teacher-bar .t-logout{background:transparent!important;border:1px solid #4c1d95!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;padding:6px 12px!important;border-radius:6px!important;font-size:12px!important;cursor:pointer!important;}
+.tcp-class-list{margin-top:8px!important;}
+.tcp-class-item{background:#fff!important;border:2px solid #EDE9FE!important;border-radius:10px!important;padding:18px 20px!important;margin-bottom:14px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;flex-wrap:wrap!important;}
+.tcp-class-item .ci-code{font-size:22px!important;font-weight:700!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;letter-spacing:1px!important;font-family:monospace!important;}
+.tcp-class-item .ci-name{font-size:15px!important;font-weight:600!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.tcp-class-item .ci-meta{font-size:13px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+.tcp-class-item .ci-btn{background:#6B21A8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:8px 16px!important;border-radius:6px!important;font-size:13px!important;font-weight:700!important;text-decoration:none!important;white-space:nowrap!important;}
+.tcp-create-form{background:#EDE9FE!important;border-radius:10px!important;padding:20px!important;margin-bottom:20px!important;}
+.tcp-create-form h3{font-size:16px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin:0 0 14px!important;}
+.tcp-row{display:flex!important;gap:12px!important;}
+.tcp-row .tcp-input{margin-top:0!important;}
+.tcp-select{width:100%!important;padding:12px 14px!important;border:2px solid #e5e7eb!important;border-radius:8px!important;font-size:15px!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;background:#fff!important;outline:none!important;}
+.tcp-empty{text-align:center!important;padding:32px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;font-style:italic!important;}
+.tcp-copy-btn{background:#f3f4f6!important;border:1px solid #e5e7eb!important;color:#374151!important;-webkit-text-fill-color:#374151!important;padding:4px 10px!important;border-radius:4px!important;font-size:12px!important;cursor:pointer!important;margin-left:8px!important;}
+.tcp-copy-btn:hover{background:#e5e7eb!important;}
+</style>
+
+<div id="tcportal-wrap">
+<div class="tcp-page">
+
+  <!-- AUTH STATE (not logged in) -->
+  <div id="tcp-auth" style="display:none">
+    <div class="tcp-hero">
+      <h1>Teacher Class Portal</h1>
+      <p>Create a class code, track student progress, export gradebook data</p>
+    </div>
+    <div class="tcp-body">
+      <div class="tcp-card">
+        <div class="tcp-tabs">
+          <button class="tcp-tab active" onclick="TCP.switchAuthTab('register')">Create Account</button>
+          <button class="tcp-tab" onclick="TCP.switchAuthTab('login')">Sign In</button>
+        </div>
+
+        <!-- REGISTER -->
+        <div class="tcp-form active" id="tcp-register">
+          <label class="tcp-label">Full Name</label>
+          <input class="tcp-input" id="regName" placeholder="Tanner Crow">
+          <label class="tcp-label">Email</label>
+          <input class="tcp-input" id="regEmail" type="email" placeholder="you@school.edu">
+          <label class="tcp-label">School (optional)</label>
+          <input class="tcp-input" id="regSchool" placeholder="Blue Valley North HS">
+          <label class="tcp-label">Password (8+ characters)</label>
+          <input class="tcp-input" id="regPass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+          <div class="tcp-error" id="regError"></div>
+          <button class="tcp-btn" onclick="TCP.register()">Create Free Account</button>
+          <div style="font-size:12px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;text-align:center!important;margin-top:12px!important;">Free forever for Unit 1 &bull; No credit card required</div>
+        </div>
+
+        <!-- LOGIN -->
+        <div class="tcp-form" id="tcp-login">
+          <label class="tcp-label">Email</label>
+          <input class="tcp-input" id="loginEmail" type="email" placeholder="you@school.edu">
+          <label class="tcp-label">Password</label>
+          <input class="tcp-input" id="loginPass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+          <div class="tcp-error" id="loginError"></div>
+          <button class="tcp-btn" onclick="TCP.login()">Sign In</button>
+        </div>
+      </div>
+
+      <!-- Value prop -->
+      <div style="background:#1E1B4B!important;border-radius:10px!important;padding:20px 24px!important;color:#fff!important;-webkit-text-fill-color:#fff!important;">
+        <div style="font-weight:700!important;font-size:15px!important;margin-bottom:10px!important;color:#E8A020!important;-webkit-text-fill-color:#E8A020!important;">What you get &mdash; free</div>
+        <div style="font-size:14px!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;line-height:1.8!important;">
+          &bull; Create unlimited class codes<br>
+          &bull; Students join without email accounts<br>
+          &bull; Track lesson completion per student<br>
+          &bull; See quiz scores and attempts<br>
+          &bull; Export progress to CSV for your gradebook<br>
+          &bull; Works with AP Cybersecurity, AP CSA, AP CSP
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD STATE (logged in) -->
+  <div id="tcp-dashboard" style="display:none">
+    <div class="tcp-teacher-bar">
+      <div>
+        <div class="tname" id="dash-name"></div>
+        <div class="tschool" id="dash-school"></div>
+      </div>
+      <button class="t-logout" onclick="TCP.logout()">Sign Out</button>
+    </div>
+
+    <div class="tcp-body" style="max-width:720px!important;">
+      <!-- Create new class -->
+      <div class="tcp-create-form">
+        <h3>+ Create a New Class</h3>
+        <div class="tcp-row">
+          <input class="tcp-input" id="newClassName" placeholder="e.g. Period 3 AP Cybersecurity" style="flex:2!important;">
+          <select class="tcp-select" id="newCourse" style="flex:1!important;">
+            <option value="ap-cybersecurity">AP Cybersecurity</option>
+            <option value="ap-csa">AP Computer Science A</option>
+            <option value="ap-csp">AP Computer Science Principles</option>
+          </select>
+        </div>
+        <div class="tcp-error" id="createError"></div>
+        <button class="tcp-btn amber" onclick="TCP.createClass()" style="margin-top:14px!important;width:auto!important;padding:12px 24px!important;">Create Class &rarr;</button>
+      </div>
+
+      <!-- Class list -->
+      <div class="tcp-section-title" id="classes-title">Your Classes</div>
+      <div id="tcp-loading" style="text-align:center!important;padding:24px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;">Loading classes&hellip;</div>
+      <div id="tcp-class-list" class="tcp-class-list" style="display:none!important;"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const API = 'https://progress.apcsexamprep.com';
+
+window.TCP = {
+  teacher: null,
+
+  init() {
+    const token = localStorage.getItem('apcse_teacher_token');
+    const teacher = localStorage.getItem('apcse_teacher');
+    if (token && teacher) {
+      try {
+        this.teacher = JSON.parse(teacher);
+        this.showDashboard();
+        this.loadClasses();
+        return;
+      } catch(e) {}
+    }
+    document.getElementById('tcp-auth').style.display = 'block';
+  },
+
+  switchAuthTab(tab) {
+    document.querySelectorAll('.tcp-tab').forEach((t,i) => {
+      t.classList.toggle('active', (tab === 'register' && i === 0) || (tab === 'login' && i === 1));
+    });
+    document.getElementById('tcp-register').classList.toggle('active', tab === 'register');
+    document.getElementById('tcp-login').classList.toggle('active', tab === 'login');
+  },
+
+  async register() {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const school = document.getElementById('regSchool').value.trim();
+    const password = document.getElementById('regPass').value;
+    if (!name || !email || !password) return this.showError('regError', 'Please fill in all required fields');
+    if (password.length < 8) return this.showError('regError', 'Password must be at least 8 characters');
+
+    const btn = document.querySelector('#tcp-register .tcp-btn');
+    btn.disabled = true; btn.textContent = 'Creating account\u2026';
+
+    try {
+      const r = await fetch(`${API}/api/teacher/register`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name, email, school, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) { btn.disabled=false; btn.textContent='Create Free Account'; return this.showError('regError', d.error); }
+      this.saveTeacher(d.token, d.teacher);
+      this.showDashboard();
+      this.loadClasses();
+    } catch(e) {
+      btn.disabled=false; btn.textContent='Create Free Account';
+      this.showError('regError', 'Connection error. Try again.');
+    }
+  },
+
+  async login() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    if (!email || !password) return this.showError('loginError', 'Email and password required');
+
+    const btn = document.querySelector('#tcp-login .tcp-btn');
+    btn.disabled=true; btn.textContent='Signing in\u2026';
+
+    try {
+      const r = await fetch(`${API}/api/teacher/login`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ email, password }),
+      });
+      const d = await r.json();
+      if (!r.ok) { btn.disabled=false; btn.textContent='Sign In'; return this.showError('loginError', d.error); }
+      this.saveTeacher(d.token, d.teacher);
+      this.showDashboard();
+      this.loadClasses();
+    } catch(e) {
+      btn.disabled=false; btn.textContent='Sign In';
+      this.showError('loginError', 'Connection error. Try again.');
+    }
+  },
+
+  saveTeacher(token, teacher) {
+    localStorage.setItem('apcse_teacher_token', token);
+    localStorage.setItem('apcse_teacher', JSON.stringify(teacher));
+    this.teacher = teacher;
+  },
+
+  showDashboard() {
+    document.getElementById('tcp-auth').style.display = 'none';
+    document.getElementById('tcp-dashboard').style.display = 'block';
+    document.getElementById('dash-name').textContent = this.teacher.name;
+    document.getElementById('dash-school').textContent = this.teacher.school || this.teacher.email;
+  },
+
+  async loadClasses() {
+    const token = localStorage.getItem('apcse_teacher_token');
+    try {
+      const r = await fetch(`${API}/api/teacher/classes`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (r.status === 401) { this.logout(); return; }
+      const d = await r.json();
+      this.renderClasses(d.classes);
+    } catch(e) {
+      document.getElementById('tcp-loading').textContent = 'Could not load classes.';
+    }
+  },
+
+  renderClasses(classes) {
+    document.getElementById('tcp-loading').style.display = 'none';
+    const list = document.getElementById('tcp-class-list');
+    list.style.display = 'block';
+    document.getElementById('classes-title').textContent = `Your Classes (${classes.length})`;
+
+    if (!classes.length) {
+      list.innerHTML = '<div class="tcp-empty">No classes yet. Create your first class above.</div>';
+      return;
+    }
+
+    list.innerHTML = classes.map(c => `
+      <div class="tcp-class-item">
+        <div>
+          <div class="ci-code">
+            ${c.class_code}
+            <button class="tcp-copy-btn" onclick="TCP.copyCode('${c.class_code}')">Copy</button>
+          </div>
+          <div class="ci-name">${c.class_name}</div>
+          <div class="ci-meta">${this.formatCourse(c.course)} &bull; ${c.student_count} student${c.student_count !== 1 ? 's' : ''} &bull; ${c.completions} completions</div>
+        </div>
+        <div style="display:flex!important;gap:8px!important;flex-wrap:wrap!important;">
+          <a class="ci-btn" href="/pages/cyber-dashboard?code=${c.class_code}">View Dashboard</a>
+        </div>
+      </div>
+    `).join('');
+  },
+
+  async createClass() {
+    const name = document.getElementById('newClassName').value.trim();
+    const course = document.getElementById('newCourse').value;
+    if (!name) return this.showError('createError', 'Please enter a class name');
+
+    const btn = document.querySelector('#tcp-create-form .tcp-btn, .tcp-create-form .tcp-btn');
+    // find create button
+    const createBtn = document.querySelector('.tcp-create-form button');
+    createBtn.disabled = true; createBtn.textContent = 'Creating\u2026';
+
+    try {
+      const r = await fetch(`${API}/api/teacher/classes`, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('apcse_teacher_token') },
+        body: JSON.stringify({ class_name: name, course }),
+      });
+      const d = await r.json();
+      createBtn.disabled=false; createBtn.textContent='Create Class \u2192';
+      if (!r.ok) return this.showError('createError', d.error);
+      document.getElementById('newClassName').value = '';
+      this.hideError('createError');
+      this.loadClasses();
+    } catch(e) {
+      createBtn.disabled=false; createBtn.textContent='Create Class \u2192';
+      this.showError('createError', 'Connection error. Try again.');
+    }
+  },
+
+  copyCode(code) {
+    navigator.clipboard.writeText(code).catch(() => {
+      prompt('Copy this class code:', code);
+    });
+  },
+
+  logout() {
+    localStorage.removeItem('apcse_teacher_token');
+    localStorage.removeItem('apcse_teacher');
+    location.reload();
+  },
+
+  formatCourse(c) {
+    return { 'ap-cybersecurity':'AP Cybersecurity', 'ap-csa':'AP Computer Science A', 'ap-csp':'AP Computer Science Principles' }[c] || c;
+  },
+
+  showError(id, msg) { const el = document.getElementById(id); if(el){el.textContent=msg;el.style.display='block';} },
+  hideError(id) { const el = document.getElementById(id); if(el){el.style.display='none';} },
+};
+
+document.addEventListener('DOMContentLoaded', () => TCP.init());
+</script>
