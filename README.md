@@ -233,6 +233,28 @@ Rules:
 `GET /api/teacher/classes/:code/progress` returns both on every cell in
 `detail`, and the CSV export gained `Earned` and `Possible` columns.
 
+### Rendering a cell
+
+`shopify/gradebook-cell.js` implements these rules once so every view agrees.
+It loads as a plain `<script>` (exposing `window.APCSGradebook`) or via
+`require()` in Node, and is unit-tested in `test/gradebook-cell.test.js`.
+
+```javascript
+APCSGradebook.formatCell({ earned_points: 3, max_points: 4 });  // "3/4"
+APCSGradebook.formatCell({ score: 80 });                        // "80%"
+APCSGradebook.formatCell({ completed: true });                  // "✓"  — not "/100"
+APCSGradebook.formatCell(null);                                 // "–"
+```
+
+`columnAverage(records)` aggregates one assignment. A column whose cells were
+never scored reports `"2 of 4 done"` rather than a percentage, because averaging
+"done" into a number is what produced a bare `30%` under a Lesson heading. It
+excludes students who never attempted by default and returns `graded`,
+`participants`, and `roster` so the caller can label whichever it shows.
+
+`rowTotal(records)` sums a student's points. Ungraded activities contribute to
+neither side, so a lesson can never move the grade.
+
 ## Event Log
 
 `sessions` and `events` are the only append-only tables in the schema.
