@@ -30,6 +30,7 @@ PORT=4000
 ADMIN_TOKEN=<random string; gates /api/analytics/*>
 ANALYTICS_SALT=<random string; salts hashed IDs in the export>
 COMPLETION_FIX_DATE=<YYYY-MM-DD you deploy the engagement-threshold tracker>
+EVENT_RETENTION_DAYS=180
 ```
 
 `ADMIN_TOKEN` and `ANALYTICS_SALT` are optional but the analytics export is
@@ -139,6 +140,15 @@ POST /api/student/progress          Save/update progress record
 POST /api/student/quiz              Submit quiz attempt with score
 ```
 
+### Event Ingest (public)
+```
+POST /api/events                    Batch of analytics events
+```
+
+Accepts unauthenticated calls — most site traffic is signed out. A student
+`Authorization: Bearer` header is optional and links the session to a student
+when present. See [Event Log](#event-log).
+
 ### Analytics Export (ADMIN_TOKEN required)
 ```
 GET  /api/analytics/students        One row per student, hashed IDs
@@ -147,8 +157,15 @@ GET  /api/analytics/teacher-funnel  Adoption funnel + per-teacher stall point
 GET  /api/analytics/assessment      CFU / quiz / exercise / lab broken out
 GET  /api/analytics/funnel          Enrolled → opened → completed → attempted → passed
 GET  /api/analytics/retention       Day 1, day 7, week 2, multi-day cohorts
+GET  /api/analytics/traffic         Sessions, visitors, page views, active minutes per day
+GET  /api/analytics/acquisition     Channel, referrers, campaigns, new vs returning
+GET  /api/analytics/devices         Device, browser, OS, country
+GET  /api/analytics/journeys        Most common event sequences per session
 GET  /api/analytics/summary         All of the above in one JSON payload
 ```
+
+Bot sessions are excluded from the traffic-derived endpoints. Pass
+`?include_bots=1` to keep them.
 
 All tabular endpoints accept `?format=csv`. All accept `?days=N` or
 `?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: last 30 days).
@@ -182,10 +199,63 @@ and `students.last_active` is overwritten, so only `quiz_attempts` is truly
 append-only. Anything counting distinct active days — including the retention
 windows — is a floor, and those fields are suffixed `_min`.
 
-**Sessions, referrers, channels, and devices are absent by design.** The
-application does not record them; there is no events table. Those questions
-still need Clarity, and connecting the two would require a shared session
-identifier written on both sides.
+## Event Log
+
+`sessions` and `events` are the only append-only tables in the schema.
+Everything else records *state* — a progress row is overwritten each time a
+student touches an activity — so this is what makes sessions, acquisition,
+device mix, and journey reconstruction possible.
+
+**Anonymous visitors are tracked too.** `student_id` is nullable on purpose.
+Organic search readers, a link shared into a Teams channel, a teacher previewing
+a lesson — none of them are signed in, and they are exactly the population the
+acquisition questions are about.
+
+**No IP address and no raw user agent is ever stored.** Only the derived device
+family, browser family, OS family, and (when the edge provides it) a two-letter
+country code. School students use this site; a UA string plus an IP is a
+fingerprint. See `lib/enrich.js`.
+
+**The ingest endpoint is public, so it defends itself:** a strict event-type
+whitelist, a 50-event batch cap, string length caps, timestamps clamped to a
+sane window, and per-IP and per-session rate limits.
+
+**Bot traffic is flagged at ingest**, not filtered downstream, and excluded from
+every traffic-derived endpoint by default.
+
+### Retention
+
+Raw events are kept for `EVENT_RETENTION_DAYS` (default 180) so any metric can
+be re-derived later, including ones nobody has thought of yet. Past that they
+are rolled into `event_daily` — kept forever — and deleted. The rollup runs at
+boot and every 24 hours. Journeys and session-level detail are unavailable
+before the retention horizon; daily totals go back indefinitely.
+
+### Linking to Clarity
+
+The tracker writes its identifiers into Clarity as custom tags:
+
+```javascript
+clarity('set', 'apcs_session', <session_id>);
+clarity('set', 'apcs_visitor', <visitor_id>);
+```
+
+Without this, Clarity can show a 25-minute visit and the app can show a
+completion with no way to confirm they were the same journey. With it, either
+side can be filtered by the other's identifier.
+
+### Site-wide deployment
+
+To capture signed-out traffic, `apcs-tracker.js` must load on **every** page,
+not just lesson pages. It no longer requires `window.APCS_PAGE` — without it the
+script records page views, sessions, and active time, and skips progress
+tracking entirely.
+
+For pages that grade individual items (CFUs, code exercises), call:
+
+```javascript
+window.APCS_trackItem('1.4-cfu-3', 80, true, 2); // itemId, score, passed, attemptNo
+```
 
 ## Tests
 
@@ -193,10 +263,14 @@ identifier written on both sides.
 npm test
 ```
 
-Boots the real app against a throwaway SQLite database, drives the public API,
-and asserts on migrations, engagement thresholds, time accumulation, every
-analytics endpoint, admin auth, and that no names, emails, or class codes
-appear in the export.
+Two suites, both booting the real app against a throwaway SQLite database:
+
+- `test/analytics.test.js` — migrations, engagement thresholds, time
+  accumulation, the progress-derived analytics endpoints, admin auth, and that
+  no names, emails, or class codes appear in the export.
+- `test/events.test.js` — ingest validation and defences, session derivation,
+  channel classification, bot flagging, the traffic endpoints, and that the
+  retention rollup neither loses nor double-counts.
 
 ## Local Development
 

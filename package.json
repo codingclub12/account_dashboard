@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/analytics.test.js"
+    "test": "node test/analytics.test.js && node test/events.test.js"
   },
   "keywords": [],
   "author": "",

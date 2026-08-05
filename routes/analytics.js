@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
 const { requireAdmin } = require('../middleware');
+const { retentionDays } = require('../lib/rollup');
 
 const PASS_SCORE = 60; // matches routes/student.js quiz grading
 
@@ -544,6 +545,203 @@ router.get('/retention', (req, res) => {
   });
 });
 
+// ── TRAFFIC ───────────────────────────────────────────────────────────────────
+// Everything below reads the event log rather than the progress tables, and so
+// covers signed-out visitors as well as enrolled students.
+//
+// Bot sessions are excluded unless ?include_bots=1. Leaving them in makes
+// referrer and device reports meaningless, and every figure here is meant to be
+// usable without a mental correction.
+function botFilter(query, alias) {
+  const a = alias ? alias + '.' : '';
+  return String(query.include_bots) === '1' ? '' : `AND ${a}bot = 0`;
+}
+
+const TRAFFIC_COLUMNS = [
+  'date', 'sessions', 'visitors', 'new_visitors', 'signed_in_sessions',
+  'page_views', 'active_minutes', 'avg_session_minutes',
+];
+
+function trafficRows(range, query) {
+  return db.prepare(`
+    SELECT
+      substr(started_at, 1, 10)              AS date,
+      COUNT(*)                               AS sessions,
+      COUNT(DISTINCT visitor_id)             AS visitors,
+      SUM(is_new_visitor)                    AS new_visitors,
+      SUM(signed_in)                         AS signed_in_sessions,
+      SUM(page_views)                        AS page_views,
+      SUM(active_s)                          AS active_s
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ? ${botFilter(query)}
+    GROUP BY date
+    ORDER BY date
+  `).all(range.from, range.to).map(r => ({
+    date: r.date,
+    sessions: r.sessions,
+    visitors: r.visitors,
+    new_visitors: r.new_visitors || 0,
+    signed_in_sessions: r.signed_in_sessions || 0,
+    page_views: r.page_views || 0,
+    active_minutes: Math.round((r.active_s || 0) / 60),
+    avg_session_minutes: r.sessions ? Math.round(((r.active_s || 0) / r.sessions / 60) * 10) / 10 : 0,
+  }));
+}
+
+router.get('/traffic', (req, res) => {
+  const range = parseRange(req.query);
+  send(req, res, 'traffic', TRAFFIC_COLUMNS, trafficRows(range, req.query), { range });
+});
+
+// ── ACQUISITION ───────────────────────────────────────────────────────────────
+function acquisitionSummary(range, query) {
+  const byChannel = db.prepare(`
+    SELECT
+      COALESCE(channel, 'unknown')       AS channel,
+      COUNT(*)                           AS sessions,
+      COUNT(DISTINCT visitor_id)         AS visitors,
+      SUM(is_new_visitor)                AS new_visitors,
+      SUM(signed_in)                     AS signed_in_sessions,
+      SUM(page_views)                    AS page_views,
+      COALESCE(SUM(active_s), 0)         AS active_s
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ? ${botFilter(query)}
+    GROUP BY channel
+    ORDER BY sessions DESC
+  `).all(range.from, range.to).map(r => ({
+    channel: r.channel,
+    sessions: r.sessions,
+    visitors: r.visitors,
+    new_visitors: r.new_visitors || 0,
+    signed_in_sessions: r.signed_in_sessions || 0,
+    page_views: r.page_views || 0,
+    active_minutes: Math.round(r.active_s / 60),
+  }));
+
+  const topReferrers = db.prepare(`
+    SELECT referrer_host AS host, COUNT(*) AS sessions, COUNT(DISTINCT visitor_id) AS visitors
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ?
+      AND referrer_host IS NOT NULL AND referrer_host != '' ${botFilter(query)}
+    GROUP BY referrer_host
+    ORDER BY sessions DESC
+    LIMIT 50
+  `).all(range.from, range.to);
+
+  const campaigns = db.prepare(`
+    SELECT COALESCE(utm_source, '') AS source, COALESCE(utm_medium, '') AS medium,
+           COALESCE(utm_campaign, '') AS campaign, COUNT(*) AS sessions
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ?
+      AND (utm_source IS NOT NULL OR utm_campaign IS NOT NULL) ${botFilter(query)}
+    GROUP BY source, medium, campaign
+    ORDER BY sessions DESC
+    LIMIT 50
+  `).all(range.from, range.to);
+
+  const totals = db.prepare(`
+    SELECT COUNT(*) AS sessions, SUM(is_new_visitor) AS new_visitors
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ? ${botFilter(query)}
+  `).get(range.from, range.to);
+
+  const newVisitors = totals.new_visitors || 0;
+  const returning = (totals.sessions || 0) - newVisitors;
+
+  return {
+    by_channel: byChannel,
+    top_referrers: topReferrers,
+    campaigns,
+    new_vs_returning: {
+      new: newVisitors,
+      returning,
+      total: totals.sessions || 0,
+      returning_pct: totals.sessions ? Math.round((returning / totals.sessions) * 100) : 0,
+    },
+  };
+}
+
+router.get('/acquisition', (req, res) => {
+  const range = parseRange(req.query);
+  const data = acquisitionSummary(range, req.query);
+  if ((req.query.format || '').toLowerCase() === 'csv') {
+    const columns = ['channel', 'sessions', 'visitors', 'new_visitors', 'signed_in_sessions', 'page_views', 'active_minutes'];
+    return send(req, res, 'acquisition', columns, data.by_channel);
+  }
+  res.json(Object.assign({ range }, data));
+});
+
+// ── DEVICES ───────────────────────────────────────────────────────────────────
+function deviceBreakdown(range, query) {
+  const dimension = column => db.prepare(`
+    SELECT COALESCE(${column}, 'unknown') AS value, COUNT(*) AS sessions,
+           COUNT(DISTINCT visitor_id) AS visitors
+    FROM sessions
+    WHERE substr(started_at, 1, 10) BETWEEN ? AND ? ${botFilter(query)}
+    GROUP BY value
+    ORDER BY sessions DESC
+  `).all(range.from, range.to);
+
+  return {
+    device: dimension('device'),
+    browser: dimension('browser'),
+    os: dimension('os'),
+    country: dimension('country'),
+  };
+}
+
+router.get('/devices', (req, res) => {
+  const range = parseRange(req.query);
+  res.json(Object.assign({ range }, deviceBreakdown(range, req.query)));
+});
+
+// ── JOURNEYS ──────────────────────────────────────────────────────────────────
+// Reconstructs the ordered event sequence per session and counts the shapes
+// that recur. This is the question the old export could not touch at all: not
+// "how many completions" but "what did a visit actually look like".
+const JOURNEY_MAX_STEPS = 8;
+
+function journeyRows(range, query, limit) {
+  const rows = db.prepare(`
+    SELECT e.session_id, e.event_type, e.occurred_at
+    FROM events e
+    JOIN sessions s ON s.id = e.session_id
+    WHERE substr(e.occurred_at, 1, 10) BETWEEN ? AND ?
+      AND e.event_type != 'heartbeat' ${botFilter(query, 's')}
+    ORDER BY e.session_id, e.occurred_at, e.rowid
+  `).all(range.from, range.to);
+
+  const paths = new Map();
+  let current = null, steps = [];
+
+  function flush() {
+    if (!current || !steps.length) return;
+    const path = steps.slice(0, JOURNEY_MAX_STEPS).join(' → ') +
+      (steps.length > JOURNEY_MAX_STEPS ? ' → …' : '');
+    const entry = paths.get(path) || { path, sessions: 0, steps: Math.min(steps.length, JOURNEY_MAX_STEPS) };
+    entry.sessions++;
+    paths.set(path, entry);
+  }
+
+  for (const r of rows) {
+    if (r.session_id !== current) { flush(); current = r.session_id; steps = []; }
+    // Collapse immediate repeats: six page_views in a row is one "browsing" step,
+    // not six distinct journey shapes.
+    if (steps[steps.length - 1] !== r.event_type) steps.push(r.event_type);
+  }
+  flush();
+
+  return Array.from(paths.values())
+    .sort((a, b) => b.sessions - a.sessions)
+    .slice(0, limit || 25);
+}
+
+router.get('/journeys', (req, res) => {
+  const range = parseRange(req.query);
+  const limit = Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 25));
+  send(req, res, 'journeys', ['path', 'steps', 'sessions'], journeyRows(range, req.query, limit), { range });
+});
+
 // ── COMBINED EXPORT ───────────────────────────────────────────────────────────
 router.get('/summary', (req, res) => {
   const range = parseRange(req.query);
@@ -559,12 +757,18 @@ router.get('/summary', (req, res) => {
     students: studentRows(),
     class_days: classDayRows(range),
     assessment: assessmentRows(),
+    traffic: trafficRows(range, req.query),
+    acquisition: acquisitionSummary(range, req.query),
+    devices: deviceBreakdown(range, req.query),
+    journeys: journeyRows(range, req.query, 25),
     caveats: [
       'Identifiers are salted hashes. Names, emails, and class codes are never exported.',
       'Active-day and retention figures are lower bounds: only quiz_attempts is append-only, ' +
       'progress rows are updated in place.',
-      'Sessions, referrers, channels, and device data are not in this payload because the ' +
-      'application does not record them. That needs an events table.',
+      'Traffic, acquisition, device and journey figures come from the event log and cover ' +
+      'signed-out visitors too. Bot sessions are excluded; pass ?include_bots=1 to keep them.',
+      `Raw events are retained for ${retentionDays()} days and then rolled into daily totals, ` +
+      'so journeys and session detail are unavailable before that horizon.',
     ],
   });
 });

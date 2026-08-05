@@ -4,6 +4,11 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 
+// Railway terminates TLS in front of the app, so the client IP is only in
+// X-Forwarded-For. Event ingest rate-limits per IP and would otherwise bucket
+// every visitor together under the proxy's address.
+app.set('trust proxy', true);
+
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const ALLOWED_ORIGINS = [
   'https://www.apcsexamprep.com',
@@ -28,6 +33,10 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/api/teacher', require('./routes/teacher'));
 app.use('/api/student', require('./routes/student'));
 app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/events', require('./routes/events'));
+
+// Ages raw events out into daily aggregates. Runs at boot, then every 24h.
+require('./lib/rollup').scheduleRollup();
 
 // ── PUBLIC ENDPOINTS ──────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

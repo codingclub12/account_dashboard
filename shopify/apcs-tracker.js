@@ -80,6 +80,123 @@
     } catch(e) { return null; }
   }
 
+  // ── ANALYTICS IDENTITY ───────────────────────────────────────────────────────
+  // Two identifiers, both first-party and neither tied to a person:
+  //   visitor_id  persists in localStorage, so returning readers are recognisable
+  //   session_id  rotates after 30 minutes of inactivity, spanning tabs
+  // These are what let a signed-out visit and a later signed-in visit be counted
+  // as the same person, and what carries the join to Clarity.
+  const VISITOR_KEY   = 'apcse_visitor';
+  const ANALYTICS_KEY = 'apcse_asession';
+  const SESSION_IDLE_MS = 30 * 60 * 1000;
+  const EVENT_FLUSH_MS = 15000;
+
+  function randomId() {
+    try {
+      if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    } catch(e) { /* fall through */ }
+    return 'id-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
+
+  function readJSON(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e) { return null; }
+  }
+  function writeJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { /* private mode */ }
+  }
+
+  function getVisitor() {
+    const stored = readJSON(VISITOR_KEY);
+    if (stored && stored.id) return { id: stored.id, isNew: false };
+    const visitor = { id: randomId(), created: Date.now() };
+    writeJSON(VISITOR_KEY, visitor);
+    return { id: visitor.id, isNew: true };
+  }
+
+  function getAnalyticsSession() {
+    const now = Date.now();
+    const stored = readJSON(ANALYTICS_KEY);
+    if (stored && stored.id && (now - (stored.seen || 0)) < SESSION_IDLE_MS) {
+      writeJSON(ANALYTICS_KEY, { id: stored.id, seen: now });
+      return { id: stored.id, isNew: false };
+    }
+    const session = { id: randomId(), seen: now };
+    writeJSON(ANALYTICS_KEY, session);
+    return { id: session.id, isNew: true };
+  }
+
+  function touchAnalyticsSession(id) { writeJSON(ANALYTICS_KEY, { id: id, seen: Date.now() }); }
+
+  // ── ANALYTICS EVENTS ─────────────────────────────────────────────────────────
+  const visitor = getVisitor();
+  const analyticsSession = getAnalyticsSession();
+  let eventQueue = [];
+
+  function param(name) {
+    try { return new URL(window.location.href).searchParams.get(name); } catch(e) { return null; }
+  }
+
+  // Sent with every batch; the server only reads it when opening a new session.
+  function eventContext() {
+    return {
+      is_new_visitor: visitor.isNew,
+      landing_page: window.location.pathname,
+      referrer: document.referrer || '',
+      utm_source: param('utm_source'),
+      utm_medium: param('utm_medium'),
+      utm_campaign: param('utm_campaign'),
+    };
+  }
+
+  function track(eventType, props) {
+    eventQueue.push(Object.assign({
+      event_type: eventType,
+      occurred_at: new Date().toISOString(),
+      page: window.location.pathname,
+    }, props || {}));
+    touchAnalyticsSession(analyticsSession.id);
+  }
+
+  function flushEvents(opts) {
+    if (!eventQueue.length) return;
+    const batch = eventQueue;
+    eventQueue = [];
+    const session = getSession();
+    const headers = { 'Content-Type': 'application/json' };
+    // Optional: attaches the events to a student when one is signed in, and is
+    // simply absent for the anonymous majority.
+    if (session) headers['Authorization'] = 'Bearer ' + session.token;
+    try {
+      fetch(`${API}/api/events`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          session_id: analyticsSession.id,
+          visitor_id: visitor.id,
+          context: eventContext(),
+          events: batch,
+        }),
+        keepalive: !!(opts && opts.keepalive),
+      }).catch(function() { /* analytics must never break the page */ });
+    } catch(e) { /* ignore */ }
+  }
+
+  // ── CLARITY LINK ─────────────────────────────────────────────────────────────
+  // Writes our identifiers into Clarity as custom tags. Without this, Clarity
+  // can show a 25-minute visit and the app can show a completion with no way to
+  // confirm they were the same journey. Clarity's script may load after this
+  // one, so retry briefly rather than assuming it is present.
+  function linkClarity(attempt) {
+    try {
+      if (window.clarity) {
+        window.clarity('set', 'apcs_session', analyticsSession.id);
+        window.clarity('set', 'apcs_visitor', visitor.id);
+        return;
+      }
+    } catch(e) { return; }
+    if ((attempt || 0) < 10) setTimeout(function() { linkClarity((attempt || 0) + 1); }, 1000);
+  }
+
   // ── SESSION BAR ──────────────────────────────────────────────────────────────
   function renderSessionBar(session) {
     const bar = document.createElement('div');
@@ -118,21 +235,17 @@
     if (el) { el.textContent = msg; if(color) el.style.color = color; }
   }
 
-  // ── ENGAGEMENT TRACKING ──────────────────────────────────────────────────────
-  // Measures active seconds and scroll depth on the page, reports time spent to
-  // the server, and marks the activity complete once both thresholds are met.
-  // Pass autoComplete: false to measure time only — quizzes are completed by
-  // their score, not by dwell time.
-  function trackEngagement(pageInfo, onComplete, opts) {
-    const autoComplete = !(opts && opts.autoComplete === false);
-    const minSeconds  = pageInfo.min_seconds    || DEFAULT_MIN_SECONDS;
-    const minScrollPct = pageInfo.min_scroll_pct || DEFAULT_MIN_SCROLL_PCT;
-
-    let activeSeconds = 0;   // seconds the page was visible and the student awake
-    let reportedSeconds = 0; // how much of that we've already sent
+  // ── ACTIVITY METER ───────────────────────────────────────────────────────────
+  // One meter per page, shared by analytics and progress tracking so both agree
+  // on what "active" means. A second counts only when the tab is visible and the
+  // visitor has interacted recently — a page left open in a background tab over
+  // lunch is not an hour of study, and it is not an hour of session time either.
+  function createActivityMeter() {
+    let activeSeconds = 0;
     let maxScrollPct = 0;
     let lastInteraction = Date.now();
-    let completed = false;
+    const tickHandlers = [];
+    const flushHandlers = [];
 
     function scrollPct() {
       const doc = document.documentElement;
@@ -151,58 +264,118 @@
     }, { passive: true });
     maxScrollPct = scrollPct();
 
+    setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if ((Date.now() - lastInteraction) / 1000 > IDLE_TIMEOUT_S) return;
+      activeSeconds++;
+      tickHandlers.forEach(fn => fn(activeSeconds, maxScrollPct));
+    }, 1000);
+
+    function flushAll(opts) { flushHandlers.forEach(fn => fn(opts)); }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushAll({ keepalive: true });
+    });
+    window.addEventListener('pagehide', () => flushAll({ keepalive: true }));
+
+    return {
+      seconds: () => activeSeconds,
+      scroll: () => maxScrollPct,
+      onTick: fn => tickHandlers.push(fn),
+      onFlush: fn => flushHandlers.push(fn),
+    };
+  }
+
+  // ── HEARTBEATS ───────────────────────────────────────────────────────────────
+  // Carries active time into the event log for every page, signed in or not.
+  // Only heartbeats contribute to session active time server-side, so no other
+  // event can inflate it.
+  function trackHeartbeats(meter) {
+    let reported = 0;
+    function beat(opts) {
+      const delta = meter.seconds() - reported;
+      if (delta < 1) return;
+      reported = meter.seconds();
+      track('heartbeat', { duration_s: delta });
+      flushEvents(opts);
+    }
+    meter.onTick(seconds => { if (seconds - reported >= FLUSH_INTERVAL_S) beat(); });
+    meter.onFlush(opts => beat(opts));
+  }
+
+  // ── ENGAGEMENT-BASED COMPLETION ──────────────────────────────────────────────
+  // Reports time spent on the progress record and marks the activity complete
+  // once both thresholds are met. Pass autoComplete: false to measure time only
+  // — quizzes are completed by their score, not by dwell time.
+  function trackEngagement(meter, pageInfo, onComplete, opts) {
+    const autoComplete = !(opts && opts.autoComplete === false);
+    const minSeconds  = pageInfo.min_seconds    || DEFAULT_MIN_SECONDS;
+    const minScrollPct = pageInfo.min_scroll_pct || DEFAULT_MIN_SCROLL_PCT;
+
+    let reportedSeconds = 0;
+    let completed = false;
+
     // time_spent_s accumulates server-side, so always send the delta since the
     // last flush rather than the running total.
-    function flushTime(opts) {
-      const delta = activeSeconds - reportedSeconds;
+    function flushTime(flushOpts) {
+      const delta = meter.seconds() - reportedSeconds;
       if (delta < 1) return;
-      reportedSeconds = activeSeconds;
+      reportedSeconds = meter.seconds();
       saveProgress({
         course: pageInfo.course,
         unit: pageInfo.unit,
         lesson: pageInfo.lesson,
         activity_type: pageInfo.activity,
         time_spent_s: delta,
-      }, opts);
+      }, flushOpts);
     }
 
-    const timer = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
-      if ((Date.now() - lastInteraction) / 1000 > IDLE_TIMEOUT_S) return;
-      activeSeconds++;
-
-      if (autoComplete && !completed && activeSeconds >= minSeconds && maxScrollPct >= minScrollPct) {
+    meter.onTick((seconds, scroll) => {
+      if (autoComplete && !completed && seconds >= minSeconds && scroll >= minScrollPct) {
         completed = true;
-        clearInterval(timer);
-        reportedSeconds = activeSeconds;
+        const total = seconds - reportedSeconds;
+        reportedSeconds = seconds;
         saveProgress({
           course: pageInfo.course,
           unit: pageInfo.unit,
           lesson: pageInfo.lesson,
           activity_type: pageInfo.activity,
           completed: true,
-          time_spent_s: activeSeconds,
+          time_spent_s: total,
         }).then(() => onComplete && onComplete());
+        track('activity_complete', {
+          course: pageInfo.course, unit: pageInfo.unit, lesson: pageInfo.lesson,
+          activity_type: pageInfo.activity, duration_s: seconds,
+        });
         return;
       }
-
-      if (activeSeconds - reportedSeconds >= FLUSH_INTERVAL_S) flushTime();
-    }, 1000);
+      if (seconds - reportedSeconds >= FLUSH_INTERVAL_S) flushTime();
+    });
 
     // Capture the tail of the visit, including the common case of a student who
     // reads for a while and then navigates away without hitting the threshold.
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushTime({ keepalive: true });
-    });
-    window.addEventListener('pagehide', () => flushTime({ keepalive: true }));
+    meter.onFlush(flushOpts => flushTime(flushOpts));
   }
 
   // ── MAIN INIT ────────────────────────────────────────────────────────────────
   function init() {
     const session = getSession();
     const pageInfo = window.APCS_PAGE;
+    const meter = createActivityMeter();
 
-    if (!pageInfo) return; // No page info set — do nothing
+    // Analytics runs on every page, whether or not APCS_PAGE is set and whether
+    // or not anyone is signed in. Most of the traffic worth understanding —
+    // organic search readers, a link shared into a Teams channel — never signs
+    // in and never touches a lesson page, and used to be invisible here.
+    linkClarity();
+    track('page_view', pageInfo ? {
+      course: pageInfo.course, unit: pageInfo.unit,
+      lesson: pageInfo.lesson, activity_type: pageInfo.activity,
+    } : null);
+    trackHeartbeats(meter);
+    flushEvents();
+    setInterval(() => flushEvents(), EVENT_FLUSH_MS);
+
+    if (!pageInfo) return; // Not a tracked lesson page — analytics only
     if (!session) {
       // Show subtle "Join class" prompt for non-logged-in students
       renderJoinPrompt();
@@ -225,13 +398,17 @@
       }).then(() => {
         setBarStatus('Tracking progress\u2026', '#c4b5fd');
       });
+      track('activity_open', {
+        course: pageInfo.course, unit: pageInfo.unit,
+        lesson: pageInfo.lesson, activity_type: pageInfo.activity,
+      });
 
-      trackEngagement(pageInfo, () => {
+      trackEngagement(meter, pageInfo, () => {
         setBarStatus('\u2713 Lesson complete', '#6EE7B7');
       });
     } else {
       // Quizzes complete on score, but their time on task is still worth having.
-      trackEngagement(pageInfo, null, { autoComplete: false });
+      trackEngagement(meter, pageInfo, null, { autoComplete: false });
     }
 
     // Expose global function for quiz pages to call when quiz completes
@@ -247,7 +424,24 @@
       if (result && result.ok) {
         setBarStatus('\u2713 Score saved: ' + score + '%', '#6EE7B7');
       }
+      track('quiz_submit', {
+        course: pageInfo.course, unit: pageInfo.unit, lesson: pageInfo.lesson,
+        activity_type: 'quiz', item_id: pageInfo.lesson + '-quiz',
+        score: score, passed: result ? !!result.passed : null,
+        duration_s: meter.seconds(),
+      });
+      flushEvents();
       return result;
+    };
+
+    // Exposed for pages that grade individual items (CFUs, code exercises) and
+    // want them in the event log without a full quiz submission.
+    window.APCS_trackItem = function(itemId, score, passed, attemptNo) {
+      track('item_attempt', {
+        course: pageInfo.course, unit: pageInfo.unit, lesson: pageInfo.lesson,
+        activity_type: pageInfo.activity, item_id: String(itemId),
+        score: score, passed: passed, attempt_no: attemptNo,
+      });
     };
 
     // Expose global function for confidence rating

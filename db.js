@@ -107,4 +107,90 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_quiz_attempted      ON quiz_attempts(attempted_at);
 `);
 
+// ── EVENT LOG ─────────────────────────────────────────────────────────────────
+// Append-only. Everything above this line records *state* — a progress row is
+// overwritten each time a student touches an activity, so the history is lost.
+// These two tables are the only place that records what happened and when,
+// which is what makes sessions, time on task, acquisition, device mix, and
+// journey reconstruction possible at all.
+//
+// student_id is nullable on purpose: most site traffic is anonymous readers who
+// never join a class, and they are exactly the population the acquisition
+// questions are about. No IP address and no raw user agent is ever stored —
+// only the derived device, browser, OS, and country.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sessions (
+    id             TEXT PRIMARY KEY,
+    visitor_id     TEXT NOT NULL,
+    student_id     TEXT REFERENCES students(id) ON DELETE SET NULL,
+    class_id       TEXT REFERENCES classes(id) ON DELETE SET NULL,
+    started_at     TEXT NOT NULL,
+    last_event_at  TEXT NOT NULL,
+    events         INTEGER DEFAULT 0,
+    page_views     INTEGER DEFAULT 0,
+    active_s       INTEGER DEFAULT 0,
+    is_new_visitor INTEGER DEFAULT 0,
+    signed_in      INTEGER DEFAULT 0,
+    landing_page   TEXT,
+    referrer_host  TEXT,
+    channel        TEXT,
+    utm_source     TEXT,
+    utm_medium     TEXT,
+    utm_campaign   TEXT,
+    device         TEXT,
+    browser        TEXT,
+    os             TEXT,
+    country        TEXT,
+    bot            INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS events (
+    id            TEXT PRIMARY KEY,
+    occurred_at   TEXT NOT NULL,
+    received_at   TEXT NOT NULL,
+    session_id    TEXT NOT NULL,
+    visitor_id    TEXT NOT NULL,
+    -- Intentionally not foreign keys. An append-only log should not lose rows
+    -- or have them rewritten when a teacher removes a student from a class;
+    -- the history of what happened stays true. The orphaned id is a bare UUID
+    -- and the export hashes it, so it identifies nobody.
+    student_id    TEXT,
+    class_id      TEXT,
+    event_type    TEXT NOT NULL,
+    course        TEXT,
+    unit          TEXT,
+    lesson        TEXT,
+    activity_type TEXT,
+    item_id       TEXT,
+    score         INTEGER,
+    passed        INTEGER,
+    attempt_no    INTEGER,
+    duration_s    INTEGER,
+    page          TEXT,
+    meta          TEXT
+  );
+
+  -- Survives pruning: raw events age out, these daily counts are kept forever.
+  CREATE TABLE IF NOT EXISTS event_daily (
+    day        TEXT NOT NULL,
+    course     TEXT NOT NULL DEFAULT '',
+    event_type TEXT NOT NULL DEFAULT '',
+    channel    TEXT NOT NULL DEFAULT '',
+    device     TEXT NOT NULL DEFAULT '',
+    events     INTEGER DEFAULT 0,
+    sessions   INTEGER DEFAULT 0,
+    visitors   INTEGER DEFAULT 0,
+    active_s   INTEGER DEFAULT 0,
+    PRIMARY KEY (day, course, event_type, channel, device)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_events_session   ON events(session_id);
+  CREATE INDEX IF NOT EXISTS idx_events_occurred  ON events(occurred_at);
+  CREATE INDEX IF NOT EXISTS idx_events_type      ON events(event_type);
+  CREATE INDEX IF NOT EXISTS idx_events_student   ON events(student_id);
+  CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at);
+  CREATE INDEX IF NOT EXISTS idx_sessions_visitor ON sessions(visitor_id);
+  CREATE INDEX IF NOT EXISTS idx_sessions_student ON sessions(student_id);
+`);
+
 module.exports = db;
