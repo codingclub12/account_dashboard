@@ -411,14 +411,18 @@
       trackEngagement(meter, pageInfo, null, { autoComplete: false });
     }
 
-    // Expose global function for quiz pages to call when quiz completes
-    window.APCS_saveQuizScore = async function(score, answers) {
+    // Expose global function for quiz pages to call when quiz completes.
+    // `points` is optional: pass { earned, max } and the gradebook can render
+    // "2/5" instead of inferring a scale from the percentage alone.
+    window.APCS_saveQuizScore = async function(score, answers, points) {
       setBarStatus('Saving score\u2026', '#c4b5fd');
       const result = await saveQuizScore({
         course: pageInfo.course,
         unit: pageInfo.unit,
         lesson: pageInfo.lesson,
         score: score,
+        earned_points: points ? points.earned : undefined,
+        max_points: points ? points.max : undefined,
         answers: answers || {},
       });
       if (result && result.ok) {
@@ -432,6 +436,21 @@
       });
       flushEvents();
       return result;
+    };
+
+    // Records a point-scored result for the current activity — 3 of 4 lesson
+    // checkpoints, 7 of 7 exercise questions. Preferred over a bare percentage,
+    // because it carries the activity's own denominator: without it a consumer
+    // has to invent a scale, which is how lessons ended up rendered as "/100".
+    window.APCS_savePoints = function(earned, max) {
+      return saveProgress({
+        course: pageInfo.course,
+        unit: pageInfo.unit,
+        lesson: pageInfo.lesson,
+        activity_type: pageInfo.activity,
+        earned_points: earned,
+        max_points: max,
+      });
     };
 
     // Exposed for pages that grade individual items (CFUs, code exercises) and

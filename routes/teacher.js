@@ -133,7 +133,8 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
   `).all(cls.id);
 
   const allProgress = db.prepare(`
-    SELECT student_id, unit, lesson, activity_type, completed, score, attempts, confidence, completed_at
+    SELECT student_id, unit, lesson, activity_type, completed, score, earned_points, max_points,
+           attempts, confidence, completed_at
     FROM progress WHERE class_id = ? AND course = ?
   `).all(cls.id, cls.course);
 
@@ -146,6 +147,11 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
     progressMap[p.student_id][p.unit][p.lesson][p.activity_type] = {
       completed: !!p.completed,
       score: p.score,
+      // Present when the activity reported its own denominator. A consumer
+      // should render "earned/max" when it has them and fall back to the
+      // percentage otherwise, rather than assuming a scale of 100.
+      earned_points: p.earned_points,
+      max_points: p.max_points,
       attempts: p.attempts,
       confidence: p.confidence,
       completed_at: toIso(p.completed_at),
@@ -193,17 +199,18 @@ router.get('/classes/:code/export', requireTeacher, (req, res) => {
 
   const rows = db.prepare(`
     SELECT s.display_name, s.student_ref, s.last_active,
-           p.unit, p.lesson, p.activity_type, p.completed, p.score, p.attempts, p.confidence, p.completed_at
+           p.unit, p.lesson, p.activity_type, p.completed, p.score, p.earned_points, p.max_points,
+           p.attempts, p.confidence, p.completed_at
     FROM students s
     LEFT JOIN progress p ON p.student_id = s.id AND p.class_id = s.class_id
     WHERE s.class_id = ?
     ORDER BY s.display_name, p.unit, p.lesson, p.activity_type
   `).all(cls.id);
 
-  const header = 'Name,Student ID,Unit,Lesson,Activity,Completed,Score,Attempts,Confidence,Completed At,Last Active\n';
+  const header = 'Name,Student ID,Unit,Lesson,Activity,Completed,Score,Earned,Possible,Attempts,Confidence,Completed At,Last Active\n';
   const lines = rows.map(r =>
     `"${r.display_name}","${r.student_ref || ''}","${r.unit || ''}","${r.lesson || ''}","${r.activity_type || ''}",` +
-    `${r.completed ? 'Yes' : 'No'},${r.score ?? ''},${r.attempts ?? ''},${r.confidence ?? ''},"${toIso(r.completed_at) || ''}","${toIso(r.last_active) || ''}"`
+    `${r.completed ? 'Yes' : 'No'},${r.score ?? ''},${r.earned_points ?? ''},${r.max_points ?? ''},${r.attempts ?? ''},${r.confidence ?? ''},"${toIso(r.completed_at) || ''}","${toIso(r.last_active) || ''}"`
   ).join('\n');
 
   res.setHeader('Content-Type', 'text/csv');

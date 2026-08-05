@@ -100,6 +100,16 @@ addColumn('teachers', 'last_seen',  'TEXT'); // set on any authenticated request
 // from "completed a lesson" once a row has been touched more than once.
 addColumn('progress', 'opened_at', 'TEXT');
 
+// The activity's own denominator. `score` is a bare 0-100 percentage with no
+// companion, so anything rendering a gradebook cell had to invent a scale:
+// activities with a known question count came out as "2/5", and everything
+// else — lessons in particular — fell back to "/100", which reads as a grade
+// on a hundred-point scale rather than what it is. Carrying earned and
+// possible points means a four-checkpoint lesson can say "3/4" and no consumer
+// has to guess. Both stay null for activities that were never point-scored.
+addColumn('progress', 'earned_points', 'INTEGER');
+addColumn('progress', 'max_points', 'INTEGER');
+
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_students_created    ON students(created_at);
   CREATE INDEX IF NOT EXISTS idx_progress_completed  ON progress(completed_at);

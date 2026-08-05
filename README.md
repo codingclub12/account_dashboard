@@ -140,6 +140,9 @@ POST /api/student/progress          Save/update progress record
 POST /api/student/quiz              Submit quiz attempt with score
 ```
 
+Both accept a result as either a bare `score` (0-100) or `earned_points` with
+`max_points`. See [Points and denominators](#points-and-denominators).
+
 ### Event Ingest (public)
 ```
 POST /api/events                    Batch of analytics events
@@ -198,6 +201,37 @@ the two populations separately instead of mixing them.
 and `students.last_active` is overwritten, so only `quiz_attempts` is truly
 append-only. Anything counting distinct active days — including the retention
 windows — is a floor, and those fields are suffixed `_min`.
+
+## Points and denominators
+
+`progress.score` is a bare 0-100 percentage. On its own it forces anything
+rendering a gradebook cell to invent a scale: activities with a known question
+count came out as `2/5`, and everything else — lessons in particular — fell back
+to `30/100`, which reads as a grade on a hundred-point scale rather than what it
+actually is.
+
+Activities can now report `earned_points` and `max_points` alongside or instead
+of `score`:
+
+```javascript
+// A four-checkpoint lesson
+window.APCS_savePoints(3, 4);        // stored as 3/4, score derived as 75
+
+// A quiz, with its real question count
+window.APCS_saveQuizScore(40, answers, { earned: 2, max: 5 });
+```
+
+Rules:
+
+- Points win. When both are sent, `score` is derived from the points, so the
+  two can never disagree.
+- `earned_points` is clamped to `max_points`.
+- Callers that only send `score` keep working unchanged; their points stay null.
+- Consumers should render `earned/max` when both are present and fall back to
+  the percentage otherwise — never assume a denominator of 100.
+
+`GET /api/teacher/classes/:code/progress` returns both on every cell in
+`detail`, and the CSV export gained `Earned` and `Possible` columns.
 
 ## Event Log
 

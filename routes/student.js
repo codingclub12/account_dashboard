@@ -8,6 +8,32 @@ const { newId, signStudentToken, isValidPin, sanitize, COURSES, nowIso, isoField
 
 const PROGRESS_TIMESTAMPS = ['opened_at', 'completed_at', 'updated_at'];
 
+// Normalises the two ways an activity can report a result. Points are the
+// richer form — they carry the activity's own denominator — and `score` stays
+// the 0-100 percentage every existing consumer already reads, derived from the
+// points when they are supplied so the two can never disagree.
+function resolveScore({ score, earned_points, max_points }) {
+  const max = Number(max_points);
+  const earned = Number(earned_points);
+  const hasPoints = Number.isFinite(max) && max > 0 && Number.isFinite(earned) && earned >= 0;
+
+  if (!hasPoints) {
+    const pct = Number(score);
+    return {
+      score: Number.isFinite(pct) ? Math.max(0, Math.min(100, Math.round(pct))) : null,
+      earned_points: null,
+      max_points: null,
+    };
+  }
+
+  const clampedEarned = Math.min(earned, max);
+  return {
+    score: Math.round((clampedEarned / max) * 100),
+    earned_points: clampedEarned,
+    max_points: max,
+  };
+}
+
 // ── JOIN CLASS (first time) ───────────────────────────────────────────────────
 router.post('/join', async (req, res) => {
   try {
@@ -85,7 +111,8 @@ router.get('/me', requireStudent, (req, res) => {
 // ── GET ALL PROGRESS ──────────────────────────────────────────────────────────
 router.get('/progress', requireStudent, (req, res) => {
   const records = db.prepare(`
-    SELECT course, unit, lesson, activity_type, completed, score, attempts, confidence, completed_at, updated_at
+    SELECT course, unit, lesson, activity_type, completed, score, earned_points, max_points,
+           attempts, confidence, completed_at, updated_at
     FROM progress WHERE student_id = ? ORDER BY unit, lesson, activity_type
   `).all(req.student.id).map(r => isoFields(r, PROGRESS_TIMESTAMPS));
 
@@ -102,13 +129,15 @@ router.get('/progress', requireStudent, (req, res) => {
 // ── SAVE / UPDATE PROGRESS ────────────────────────────────────────────────────
 router.post('/progress', requireStudent, (req, res) => {
   try {
-    const { course, unit, lesson, activity_type, completed, score, confidence, time_spent_s } = req.body;
+    const { course, unit, lesson, activity_type, completed, confidence, time_spent_s } = req.body;
 
     if (!course || !unit || !lesson || !activity_type) {
       return res.status(400).json({ error: 'course, unit, lesson, and activity_type required' });
     }
 
-    const now = new Date().toISOString();
+    const result = resolveScore(req.body);
+    const score = result.score;
+    const now = nowIso();
     const existing = db.prepare(`
       SELECT id, attempts FROM progress
       WHERE student_id = ? AND course = ? AND unit = ? AND lesson = ? AND activity_type = ?
@@ -121,6 +150,8 @@ router.post('/progress', requireStudent, (req, res) => {
         UPDATE progress SET
           completed = CASE WHEN ? = 1 THEN 1 ELSE completed END,
           score = CASE WHEN ? IS NOT NULL THEN ? ELSE score END,
+          earned_points = CASE WHEN ? IS NOT NULL THEN ? ELSE earned_points END,
+          max_points = CASE WHEN ? IS NOT NULL THEN ? ELSE max_points END,
           attempts = ?,
           confidence = CASE WHEN ? IS NOT NULL THEN ? ELSE confidence END,
           time_spent_s = CASE WHEN ? IS NOT NULL THEN COALESCE(time_spent_s, 0) + ? ELSE time_spent_s END,
@@ -130,6 +161,8 @@ router.post('/progress', requireStudent, (req, res) => {
       `).run(
         completed ? 1 : 0,
         score, score,
+        result.earned_points, result.earned_points,
+        result.max_points, result.max_points,
         newAttempts,
         confidence, confidence,
         time_spent_s, time_spent_s,
@@ -141,13 +174,16 @@ router.post('/progress', requireStudent, (req, res) => {
       // Insert new record
       db.prepare(`
         INSERT INTO progress (id, student_id, class_id, course, unit, lesson, activity_type,
-          completed, score, attempts, confidence, time_spent_s, opened_at, completed_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          completed, score, earned_points, max_points, attempts, confidence, time_spent_s,
+          opened_at, completed_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         newId(), req.student.id, req.student.class_id,
         course, unit, lesson, activity_type,
         completed ? 1 : 0,
         score ?? null,
+        result.earned_points,
+        result.max_points,
         score != null ? 1 : 0,
         confidence ?? null,
         time_spent_s ?? null,
@@ -172,36 +208,50 @@ router.post('/progress', requireStudent, (req, res) => {
 // ── SUBMIT QUIZ ATTEMPT ───────────────────────────────────────────────────────
 router.post('/quiz', requireStudent, (req, res) => {
   try {
-    const { course, unit, lesson, answers, score } = req.body;
+    const { course, unit, lesson, answers } = req.body;
     if (!course || !unit || !lesson) return res.status(400).json({ error: 'course, unit, lesson required' });
-    if (typeof score !== 'number') return res.status(400).json({ error: 'score required (0-100)' });
+
+    // Accepts either a bare percentage or earned/possible points. Points are
+    // preferred: they let a gradebook render "2/5" instead of guessing a scale.
+    const result = resolveScore(req.body);
+    const score = result.score;
+    if (score === null) {
+      return res.status(400).json({ error: 'score (0-100) or earned_points with max_points required' });
+    }
 
     // Find or create progress record for quiz
     let progressRecord = db.prepare(`
       SELECT id FROM progress WHERE student_id = ? AND course = ? AND unit = ? AND lesson = ? AND activity_type = 'quiz'
     `).get(req.student.id, course, unit, lesson);
 
-    const now = new Date().toISOString();
+    const now = nowIso();
     const passed = score >= 60;
 
     if (!progressRecord) {
       const pid = newId();
       db.prepare(`
         INSERT INTO progress (id, student_id, class_id, course, unit, lesson, activity_type,
-          completed, score, attempts, opened_at, completed_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'quiz', ?, ?, 1, ?, ?, ?)
-      `).run(pid, req.student.id, req.student.class_id, course, unit, lesson, passed ? 1 : 0, score, now, passed ? now : null, now);
+          completed, score, earned_points, max_points, attempts, opened_at, completed_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'quiz', ?, ?, ?, ?, 1, ?, ?, ?)
+      `).run(pid, req.student.id, req.student.class_id, course, unit, lesson, passed ? 1 : 0, score,
+             result.earned_points, result.max_points, now, passed ? now : null, now);
       progressRecord = { id: pid };
     } else {
       db.prepare(`
         UPDATE progress SET
           score = CASE WHEN ? > COALESCE(score, 0) THEN ? ELSE score END,
+          -- Points track the best attempt, matching how score is kept.
+          earned_points = CASE WHEN ? IS NOT NULL AND ? > COALESCE(score, 0) THEN ? ELSE earned_points END,
+          max_points = CASE WHEN ? IS NOT NULL THEN ? ELSE max_points END,
           attempts = attempts + 1,
           completed = CASE WHEN ? >= 60 THEN 1 ELSE completed END,
           completed_at = CASE WHEN ? >= 60 AND completed_at IS NULL THEN ? ELSE completed_at END,
           updated_at = ?
         WHERE id = ?
-      `).run(score, score, score, score, now, now, progressRecord.id);
+      `).run(score, score,
+             result.earned_points, score, result.earned_points,
+             result.max_points, result.max_points,
+             score, score, now, now, progressRecord.id);
     }
 
     // Log the attempt

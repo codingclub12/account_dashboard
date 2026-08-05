@@ -205,6 +205,63 @@ function dayAgo(n) {
   check('summary leaks no class codes', !JSON.stringify(sum.json).includes(code));
   check('summary leaks no student names', !JSON.stringify(sum.json).includes('Avery'));
 
+  console.log('\n── points carry their own denominator ──');
+  // A four-checkpoint lesson: the thing that used to render as "75/100".
+  await api('POST', '/api/student/progress', {
+    course: 'ap-cybersecurity', unit: 'unit-1', lesson: '1.3', activity_type: 'lesson',
+    earned_points: 3, max_points: 4, completed: true,
+  }, sAuth(students[0]));
+  const lessonRow = db.prepare(`SELECT score, earned_points, max_points FROM progress
+    WHERE student_id = ? AND lesson = '1.3'`).get(students[0].id);
+  check('points stored as given', lessonRow.earned_points === 3 && lessonRow.max_points === 4, lessonRow);
+  check('score derived from points', lessonRow.score === 75, lessonRow);
+
+  // Points win over a percentage sent alongside them, so the two can't disagree.
+  await api('POST', '/api/student/progress', {
+    course: 'ap-cybersecurity', unit: 'unit-1', lesson: '1.4', activity_type: 'exercise-1',
+    score: 12, earned_points: 7, max_points: 7,
+  }, sAuth(students[0]));
+  const exRow = db.prepare(`SELECT score, earned_points, max_points FROM progress
+    WHERE student_id = ? AND lesson = '1.4'`).get(students[0].id);
+  check('points override a conflicting percentage', exRow.score === 100, exRow);
+
+  // Existing callers that only send a percentage keep working, with no points.
+  const legacy = db.prepare(`SELECT score, earned_points, max_points FROM progress
+    WHERE student_id = ? AND lesson = '1.1' AND activity_type = 'quiz'`).get(students[0].id);
+  check('percentage-only rows keep a null denominator',
+    legacy.score === 80 && legacy.earned_points === null && legacy.max_points === null, legacy);
+
+  const earnedOverMax = await api('POST', '/api/student/progress', {
+    course: 'ap-cybersecurity', unit: 'unit-1', lesson: '1.5', activity_type: 'exercise-2',
+    earned_points: 99, max_points: 5,
+  }, sAuth(students[0]));
+  check('earned is clamped to the maximum',
+    earnedOverMax.json.progress.earned_points === 5 && earnedOverMax.json.progress.score === 100,
+    earnedOverMax.json.progress);
+
+  const quizPoints = await api('POST', '/api/student/quiz', {
+    course: 'ap-cybersecurity', unit: 'unit-2', lesson: '2.1', earned_points: 2, max_points: 5,
+  }, sAuth(students[0]));
+  check('quiz accepts points instead of a percentage', quizPoints.status === 200, quizPoints.json);
+  const quizRow = db.prepare(`SELECT score, earned_points, max_points FROM progress
+    WHERE student_id = ? AND lesson = '2.1'`).get(students[0].id);
+  check('quiz points stored with derived score',
+    quizRow.score === 40 && quizRow.earned_points === 2 && quizRow.max_points === 5, quizRow);
+
+  const noScore = await api('POST', '/api/student/quiz',
+    { course: 'ap-cybersecurity', unit: 'unit-2', lesson: '2.2' }, sAuth(students[0]));
+  check('quiz still rejects a submission with no result at all', noScore.status === 400, noScore.json);
+
+  const dashPoints = await api('GET', `/api/teacher/classes/${code}/progress`, null, tAuth);
+  const cell = dashPoints.json.summary
+    .map(s => s.detail?.['unit-1']?.['1.3']?.['lesson']).filter(Boolean)[0];
+  check('dashboard exposes the denominator to render 3/4',
+    cell.earned_points === 3 && cell.max_points === 4, cell);
+
+  const exportCsv = await api('GET', `/api/teacher/classes/${code}/export`, null, tAuth);
+  check('CSV export gained Earned and Possible columns',
+    exportCsv.text.split('\n')[0].includes('Earned,Possible'), exportCsv.text.split('\n')[0]);
+
   console.log('\n── timestamps are explicit UTC ──');
   const { toIso } = require(path.join(ROOT, 'utils.js'));
   check('space-separated SQLite time gets T and Z',
