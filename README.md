@@ -233,6 +233,24 @@ Rules:
 `GET /api/teacher/classes/:code/progress` returns both on every cell in
 `detail`, and the CSV export gained `Earned` and `Possible` columns.
 
+### One grading policy, served to both views
+
+`mastery_threshold` and `grade_includes_lessons` live on the class, not in each
+front end. Both `GET /api/teacher/classes/:code/progress` and
+`GET /api/student/progress` return them as `grading`:
+
+```json
+{ "grading": { "mastery_threshold": 80, "includes_lessons": false } }
+```
+
+Teachers change them with `PUT /api/teacher/classes/:code`. Defaults are 80%
+and lessons excluded.
+
+This exists because the two pages disagreed: the gradebook excluded lessons from
+the grade and the student dashboard included them, so the same work read 45% to
+the teacher and 43% to the student. Neither page knew the other rule existed.
+A client that reads `grading` instead of its own constant cannot drift again.
+
 ### Rendering a cell
 
 `shopify/gradebook-cell.js` implements these rules once so every view agrees.

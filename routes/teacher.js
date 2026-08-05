@@ -7,7 +7,7 @@ const { requireTeacher } = require('../middleware');
 const {
   newId, generateClassCode, signTeacherToken,
   isValidEmail, sanitize, COURSES, COURSE_PREFIXES,
-  nowIso, toIso, isoFields,
+  nowIso, toIso, isoFields, gradingPolicy,
 } = require('../utils');
 
 // ── REGISTER ──────────────────────────────────────────────────────────────────
@@ -208,7 +208,13 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
     };
   });
 
-  res.json({ class: isoFields(cls, ['created_at']), course_config: courseConfig, denominators, summary });
+  res.json({
+    class: isoFields(cls, ['created_at']),
+    course_config: courseConfig,
+    grading: gradingPolicy(cls),
+    denominators,
+    summary,
+  });
 });
 
 // ── CSV EXPORT ────────────────────────────────────────────────────────────────
@@ -244,11 +250,36 @@ router.put('/classes/:code', requireTeacher, (req, res) => {
     .get(req.params.code.toUpperCase(), req.teacher.id);
   if (!cls) return res.status(404).json({ error: 'Class not found' });
 
-  const { class_name, active } = req.body;
-  db.prepare('UPDATE classes SET class_name = ?, active = ? WHERE id = ?')
-    .run(sanitize(class_name || cls.class_name, 100), active !== undefined ? (active ? 1 : 0) : cls.active, cls.id);
+  const { class_name, active, mastery_threshold, grade_includes_lessons } = req.body;
 
-  res.json({ class: db.prepare('SELECT * FROM classes WHERE id = ?').get(cls.id) });
+  // Grading policy is stored per class rather than hardcoded in each front end,
+  // so the teacher gradebook and the student dashboard cannot disagree about
+  // what a grade means. Threshold is bounded to a range a percentage can be.
+  let threshold = cls.mastery_threshold;
+  if (mastery_threshold !== undefined) {
+    const n = Number(mastery_threshold);
+    if (!Number.isFinite(n) || n < 1 || n > 100) {
+      return res.status(400).json({ error: 'mastery_threshold must be between 1 and 100' });
+    }
+    threshold = Math.round(n);
+  }
+  const includesLessons = grade_includes_lessons === undefined
+    ? cls.grade_includes_lessons
+    : (grade_includes_lessons ? 1 : 0);
+
+  db.prepare(`
+    UPDATE classes SET class_name = ?, active = ?, mastery_threshold = ?, grade_includes_lessons = ?
+    WHERE id = ?
+  `).run(
+    sanitize(class_name || cls.class_name, 100),
+    active !== undefined ? (active ? 1 : 0) : cls.active,
+    threshold,
+    includesLessons,
+    cls.id
+  );
+
+  const updated = db.prepare('SELECT * FROM classes WHERE id = ?').get(cls.id);
+  res.json({ class: isoFields(updated, ['created_at']), grading: gradingPolicy(updated) });
 });
 
 // ── REMOVE STUDENT ─────────────────────────────────────────────────────────────

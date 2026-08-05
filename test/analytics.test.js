@@ -275,6 +275,41 @@ function dayAgo(n) {
   check('an unscored lesson reports a null denominator rather than 100',
     ungradedCell && ungradedCell.points_possible === null, ungradedCell);
 
+  console.log('\n── one grading policy, served to both views ──');
+  const teacherView = await api('GET', `/api/teacher/classes/${code}/progress`, null, tAuth);
+  const studentView = await api('GET', '/api/student/progress', null, sAuth(students[0]));
+  check('teacher view carries the grading policy', !!teacherView.json.grading, Object.keys(teacherView.json));
+  check('student view carries the grading policy', !!studentView.json.grading, Object.keys(studentView.json));
+  check('both views agree by default',
+    JSON.stringify(teacherView.json.grading) === JSON.stringify(studentView.json.grading),
+    [teacherView.json.grading, studentView.json.grading]);
+  check('mastery defaults to 80', teacherView.json.grading.mastery_threshold === 80, teacherView.json.grading);
+  check('lessons excluded from the grade by default',
+    teacherView.json.grading.includes_lessons === false, teacherView.json.grading);
+
+  const setPolicy = await api('PUT', `/api/teacher/classes/${code}`,
+    { mastery_threshold: 90, grade_includes_lessons: true }, tAuth);
+  check('teacher can set the policy', setPolicy.status === 200 && setPolicy.json.grading.mastery_threshold === 90,
+    setPolicy.json);
+
+  const studentAfter = await api('GET', '/api/student/progress', null, sAuth(students[0]));
+  check('the student view follows the teacher\'s change',
+    studentAfter.json.grading.mastery_threshold === 90 && studentAfter.json.grading.includes_lessons === true,
+    studentAfter.json.grading);
+
+  const badPolicy = await api('PUT', `/api/teacher/classes/${code}`, { mastery_threshold: 500 }, tAuth);
+  check('an out-of-range threshold is rejected', badPolicy.status === 400, badPolicy.json);
+
+  check('student progress carries the same denominators map',
+    studentAfter.json.denominators['1.3|lesson'] === 4, studentAfter.json.denominators);
+  const stuCell = studentAfter.json.progress.find(r => r.lesson === '1.3' && r.activity_type === 'lesson');
+  check('student cells expose points under the names the dashboard reads',
+    stuCell.points_earned === 3 && stuCell.points_possible === 4, stuCell);
+
+  // Restore the default so later assertions in this file are unaffected.
+  await api('PUT', `/api/teacher/classes/${code}`,
+    { mastery_threshold: 80, grade_includes_lessons: false }, tAuth);
+
   console.log('\n── timestamps are explicit UTC ──');
   const { toIso } = require(path.join(ROOT, 'utils.js'));
   check('space-separated SQLite time gets T and Z',

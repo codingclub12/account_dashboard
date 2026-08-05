@@ -110,6 +110,14 @@ addColumn('progress', 'opened_at', 'TEXT');
 addColumn('progress', 'earned_points', 'INTEGER');
 addColumn('progress', 'max_points', 'INTEGER');
 
+// Grading policy, per class. These lived as constants in two separate pages,
+// which is why the same student's work came to 45% in the teacher gradebook and
+// 43% on their own dashboard: one excluded lessons from the grade and the other
+// did not, and neither knew the other existed. Serving the policy makes the two
+// views answer to the same rule instead of each carrying its own.
+addColumn('classes', 'mastery_threshold', 'INTEGER');       // percent counted as passed
+addColumn('classes', 'grade_includes_lessons', 'INTEGER');  // do lessons count toward the grade
+
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_students_created    ON students(created_at);
   CREATE INDEX IF NOT EXISTS idx_progress_completed  ON progress(completed_at);

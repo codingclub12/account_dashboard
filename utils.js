@@ -135,6 +135,22 @@ function isoFields(row, fields) {
   return out;
 }
 
+// ── GRADING POLICY ────────────────────────────────────────────────────────────
+// Defaults applied when a class has not set its own. Served to every client so
+// the teacher gradebook and the student dashboard cannot drift apart.
+const DEFAULT_MASTERY_THRESHOLD = 80;
+const DEFAULT_GRADE_INCLUDES_LESSONS = false; // daily practice shouldn't flood the grade
+
+function gradingPolicy(cls) {
+  const threshold = cls && Number.isFinite(cls.mastery_threshold) ? cls.mastery_threshold : null;
+  return {
+    mastery_threshold: threshold !== null ? threshold : DEFAULT_MASTERY_THRESHOLD,
+    includes_lessons: cls && cls.grade_includes_lessons !== null && cls.grade_includes_lessons !== undefined
+      ? !!cls.grade_includes_lessons
+      : DEFAULT_GRADE_INCLUDES_LESSONS,
+  };
+}
+
 // ── COURSE PREFIX for class codes ─────────────────────────────────────────────
 const COURSE_PREFIXES = {
   'ap-cybersecurity': 'CYBER',
@@ -147,4 +163,5 @@ module.exports = {
   signStudentToken, verifyStudentToken, COURSES, COURSE_PREFIXES,
   isValidEmail, isValidPin, isValidClassCode, sanitize,
   nowIso, toIso, isoFields,
+  gradingPolicy, DEFAULT_MASTERY_THRESHOLD, DEFAULT_GRADE_INCLUDES_LESSONS,
 };

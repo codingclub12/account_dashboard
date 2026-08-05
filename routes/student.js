@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const db = require('../db');
 const { requireStudent } = require('../middleware');
-const { newId, signStudentToken, isValidPin, sanitize, COURSES, nowIso, isoFields } = require('../utils');
+const { newId, signStudentToken, isValidPin, sanitize, COURSES, nowIso, isoFields, gradingPolicy } = require('../utils');
 
 const PROGRESS_TIMESTAMPS = ['opened_at', 'completed_at', 'updated_at'];
 
@@ -114,7 +114,13 @@ router.get('/progress', requireStudent, (req, res) => {
     SELECT course, unit, lesson, activity_type, completed, score, earned_points, max_points,
            attempts, confidence, completed_at, updated_at
     FROM progress WHERE student_id = ? ORDER BY unit, lesson, activity_type
-  `).all(req.student.id).map(r => isoFields(r, PROGRESS_TIMESTAMPS));
+  `).all(req.student.id).map(r => Object.assign(isoFields(r, PROGRESS_TIMESTAMPS), {
+    // The dashboard reads these spellings; without them it fell back to a
+    // per-activity constant and invented its own denominators, so the same
+    // quiz read 2/5 to the teacher and 4/10 to the student.
+    points_earned: r.earned_points,
+    points_possible: r.max_points,
+  }));
 
   // Build structured map for easy frontend consumption
   const map = {};
@@ -123,7 +129,18 @@ router.get('/progress', requireStudent, (req, res) => {
     map[key] = r;
   }
 
-  res.json({ progress: records, map });
+  // Same shape the teacher gradebook receives, so both render identical cells.
+  const denominators = {};
+  for (const r of records) {
+    if (r.max_points == null || r.max_points <= 0) continue;
+    const key = `${r.lesson}|${r.activity_type}`;
+    denominators[key] = Math.max(denominators[key] || 0, r.max_points);
+  }
+
+  const cls = db.prepare('SELECT mastery_threshold, grade_includes_lessons FROM classes WHERE id = ?')
+    .get(req.student.class_id);
+
+  res.json({ progress: records, map, denominators, grading: gradingPolicy(cls) });
 });
 
 // ── SAVE / UPDATE PROGRESS ────────────────────────────────────────────────────
