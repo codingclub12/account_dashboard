@@ -262,6 +262,19 @@ function dayAgo(n) {
   check('CSV export gained Earned and Possible columns',
     exportCsv.text.split('\n')[0].includes('Earned,Possible'), exportCsv.text.split('\n')[0]);
 
+  console.log('\n── gradebook integration ──');
+  const gb = await api('GET', `/api/teacher/classes/${code}/progress`, null, tAuth);
+  check('response carries a denominators map', !!gb.json.denominators, Object.keys(gb.json));
+  check('denominator keyed lesson|activity', gb.json.denominators['1.3|lesson'] === 4, gb.json.denominators);
+  check('ungraded activities are absent, not zero',
+    !('1.2|lesson' in gb.json.denominators), gb.json.denominators);
+  const gbCell = gb.json.summary.map(s => s.detail?.['unit-1']?.['1.3']?.['lesson']).filter(Boolean)[0];
+  check('cell exposes points under the names the gradebook reads',
+    gbCell.points_earned === 3 && gbCell.points_possible === 4, gbCell);
+  const ungradedCell = gb.json.summary.map(s => s.detail?.['unit-1']?.['1.2']?.['lesson']).filter(Boolean)[0];
+  check('an unscored lesson reports a null denominator rather than 100',
+    ungradedCell && ungradedCell.points_possible === null, ungradedCell);
+
   console.log('\n── timestamps are explicit UTC ──');
   const { toIso } = require(path.join(ROOT, 'utils.js'));
   check('space-separated SQLite time gets T and Z',

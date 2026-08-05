@@ -152,6 +152,11 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
       // percentage otherwise, rather than assuming a scale of 100.
       earned_points: p.earned_points,
       max_points: p.max_points,
+      // Same pair under the names the gradebook reads. It looks for
+      // points_earned/points_possible, so emitting only the earned_points
+      // spelling left it falling back to a hardcoded per-activity constant.
+      points_earned: p.earned_points,
+      points_possible: p.max_points,
       attempts: p.attempts,
       confidence: p.confidence,
       completed_at: toIso(p.completed_at),
@@ -159,6 +164,21 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
   }
 
   const courseConfig = COURSES[cls.course] || {};
+
+  // Authored point totals per activity, keyed "lesson|activity" — the shape the
+  // gradebook reads. Without it every column falls back to a per-activity
+  // constant, which is how a lesson came to be displayed out of 100.
+  //
+  // Taken as the largest denominator any student reported for that activity:
+  // students all sit the same assignment, so they agree, and MAX is immune to
+  // a partially-saved attempt reporting a smaller total. Activities nobody has
+  // point-scored are absent, which the client reads as "unknown", not zero.
+  const denominators = {};
+  for (const p of allProgress) {
+    if (p.max_points == null || p.max_points <= 0) continue;
+    const key = `${p.lesson}|${p.activity_type}`;
+    denominators[key] = Math.max(denominators[key] || 0, p.max_points);
+  }
 
   // Compute per-student summary
   const summary = students.map(s => {
@@ -188,7 +208,7 @@ router.get('/classes/:code/progress', requireTeacher, (req, res) => {
     };
   });
 
-  res.json({ class: isoFields(cls, ['created_at']), course_config: courseConfig, summary });
+  res.json({ class: isoFields(cls, ['created_at']), course_config: courseConfig, denominators, summary });
 });
 
 // ── CSV EXPORT ────────────────────────────────────────────────────────────────
