@@ -78,4 +78,33 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_quiz_student    ON quiz_attempts(student_id);
 `);
 
+// ── MIGRATIONS ────────────────────────────────────────────────────────────────
+// CREATE TABLE IF NOT EXISTS only builds tables that are missing; it will not
+// add columns to a table that already exists. Existing deployments therefore
+// need an explicit ALTER, guarded so it is safe to run on every boot.
+function addColumn(table, column, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (columns.some(c => c.name === column)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+// Teacher engagement. Nothing recorded teacher behaviour before this, so
+// "did the teacher come back after their students did work?" was unanswerable
+// — by_teacher.last_activity in the analytics export could only ever be
+// derived from student progress.
+addColumn('teachers', 'last_login', 'TEXT'); // set on password login
+addColumn('teachers', 'last_seen',  'TEXT'); // set on any authenticated request
+
+// When a student first opened this activity. updated_at is overwritten on
+// every save, so without this there is no way to separate "opened a lesson"
+// from "completed a lesson" once a row has been touched more than once.
+addColumn('progress', 'opened_at', 'TEXT');
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_students_created    ON students(created_at);
+  CREATE INDEX IF NOT EXISTS idx_progress_completed  ON progress(completed_at);
+  CREATE INDEX IF NOT EXISTS idx_progress_updated    ON progress(updated_at);
+  CREATE INDEX IF NOT EXISTS idx_quiz_attempted      ON quiz_attempts(attempted_at);
+`);
+
 module.exports = db;

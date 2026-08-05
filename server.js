@@ -27,6 +27,7 @@ app.use(express.json({ limit: '1mb' }));
 // ── ROUTES ────────────────────────────────────────────────────────────────────
 app.use('/api/teacher', require('./routes/teacher'));
 app.use('/api/student', require('./routes/student'));
+app.use('/api/analytics', require('./routes/analytics'));
 
 // ── PUBLIC ENDPOINTS ──────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

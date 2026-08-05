@@ -139,8 +139,8 @@ router.post('/progress', requireStudent, (req, res) => {
       // Insert new record
       db.prepare(`
         INSERT INTO progress (id, student_id, class_id, course, unit, lesson, activity_type,
-          completed, score, attempts, confidence, time_spent_s, completed_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          completed, score, attempts, confidence, time_spent_s, opened_at, completed_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         newId(), req.student.id, req.student.class_id,
         course, unit, lesson, activity_type,
@@ -149,6 +149,7 @@ router.post('/progress', requireStudent, (req, res) => {
         score != null ? 1 : 0,
         confidence ?? null,
         time_spent_s ?? null,
+        now,
         completed ? now : null,
         now
       );
@@ -185,9 +186,9 @@ router.post('/quiz', requireStudent, (req, res) => {
       const pid = newId();
       db.prepare(`
         INSERT INTO progress (id, student_id, class_id, course, unit, lesson, activity_type,
-          completed, score, attempts, completed_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'quiz', ?, ?, 1, ?, ?)
-      `).run(pid, req.student.id, req.student.class_id, course, unit, lesson, passed ? 1 : 0, score, passed ? now : null, now);
+          completed, score, attempts, opened_at, completed_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'quiz', ?, ?, 1, ?, ?, ?)
+      `).run(pid, req.student.id, req.student.class_id, course, unit, lesson, passed ? 1 : 0, score, now, passed ? now : null, now);
       progressRecord = { id: pid };
     } else {
       db.prepare(`

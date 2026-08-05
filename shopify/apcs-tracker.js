@@ -10,6 +10,11 @@
  *     unit: 'unit-1',               // unit-1 | unit-2 | etc.
  *     lesson: '1.1',                // lesson number
  *     activity: 'lesson',           // lesson | exercise-1 | exercise-2 | quiz
+ *
+ *     // Optional — engagement thresholds for counting the activity complete.
+ *     // Defaults: 60 seconds of active time AND 70% scroll depth.
+ *     min_seconds: 60,
+ *     min_scroll_pct: 70,
  *   };
  */
 
@@ -28,8 +33,20 @@
     } catch(e) { return null; }
   }
 
+  // ── ENGAGEMENT THRESHOLDS ────────────────────────────────────────────────────
+  // A page load is not a completion. Until both of these are met the activity is
+  // recorded as opened-but-not-completed. Override per page with
+  // window.APCS_PAGE.min_seconds / min_scroll_pct for unusually short or long ones.
+  const DEFAULT_MIN_SECONDS   = 60;
+  const DEFAULT_MIN_SCROLL_PCT = 70;
+  // Stop counting active time after this long with no interaction, so a lesson
+  // left open in a background tab over lunch doesn't become an hour of study.
+  const IDLE_TIMEOUT_S = 120;
+  // How often to flush accumulated time to the server mid-session.
+  const FLUSH_INTERVAL_S = 30;
+
   // ── API CALL ─────────────────────────────────────────────────────────────────
-  async function saveProgress(data) {
+  async function saveProgress(data, opts) {
     const session = getSession();
     if (!session) return;
     try {
@@ -40,6 +57,9 @@
           'Authorization': 'Bearer ' + session.token,
         },
         body: JSON.stringify(data),
+        // keepalive lets the final flush survive the page unloading. sendBeacon
+        // can't be used here because it cannot set an Authorization header.
+        keepalive: !!(opts && opts.keepalive),
       });
     } catch(e) { /* silent fail — don't disrupt student experience */ }
   }
@@ -98,6 +118,85 @@
     if (el) { el.textContent = msg; if(color) el.style.color = color; }
   }
 
+  // ── ENGAGEMENT TRACKING ──────────────────────────────────────────────────────
+  // Measures active seconds and scroll depth on the page, reports time spent to
+  // the server, and marks the activity complete once both thresholds are met.
+  // Pass autoComplete: false to measure time only — quizzes are completed by
+  // their score, not by dwell time.
+  function trackEngagement(pageInfo, onComplete, opts) {
+    const autoComplete = !(opts && opts.autoComplete === false);
+    const minSeconds  = pageInfo.min_seconds    || DEFAULT_MIN_SECONDS;
+    const minScrollPct = pageInfo.min_scroll_pct || DEFAULT_MIN_SCROLL_PCT;
+
+    let activeSeconds = 0;   // seconds the page was visible and the student awake
+    let reportedSeconds = 0; // how much of that we've already sent
+    let maxScrollPct = 0;
+    let lastInteraction = Date.now();
+    let completed = false;
+
+    function scrollPct() {
+      const doc = document.documentElement;
+      const scrollable = doc.scrollHeight - window.innerHeight;
+      // A page shorter than the viewport is fully seen the moment it loads.
+      if (scrollable <= 0) return 100;
+      return Math.min(100, Math.round((window.scrollY / scrollable) * 100));
+    }
+
+    function noteInteraction() { lastInteraction = Date.now(); }
+    ['scroll', 'keydown', 'mousedown', 'touchstart', 'mousemove'].forEach(evt =>
+      window.addEventListener(evt, noteInteraction, { passive: true })
+    );
+    window.addEventListener('scroll', () => {
+      maxScrollPct = Math.max(maxScrollPct, scrollPct());
+    }, { passive: true });
+    maxScrollPct = scrollPct();
+
+    // time_spent_s accumulates server-side, so always send the delta since the
+    // last flush rather than the running total.
+    function flushTime(opts) {
+      const delta = activeSeconds - reportedSeconds;
+      if (delta < 1) return;
+      reportedSeconds = activeSeconds;
+      saveProgress({
+        course: pageInfo.course,
+        unit: pageInfo.unit,
+        lesson: pageInfo.lesson,
+        activity_type: pageInfo.activity,
+        time_spent_s: delta,
+      }, opts);
+    }
+
+    const timer = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if ((Date.now() - lastInteraction) / 1000 > IDLE_TIMEOUT_S) return;
+      activeSeconds++;
+
+      if (autoComplete && !completed && activeSeconds >= minSeconds && maxScrollPct >= minScrollPct) {
+        completed = true;
+        clearInterval(timer);
+        reportedSeconds = activeSeconds;
+        saveProgress({
+          course: pageInfo.course,
+          unit: pageInfo.unit,
+          lesson: pageInfo.lesson,
+          activity_type: pageInfo.activity,
+          completed: true,
+          time_spent_s: activeSeconds,
+        }).then(() => onComplete && onComplete());
+        return;
+      }
+
+      if (activeSeconds - reportedSeconds >= FLUSH_INTERVAL_S) flushTime();
+    }, 1000);
+
+    // Capture the tail of the visit, including the common case of a student who
+    // reads for a while and then navigates away without hitting the threshold.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushTime({ keepalive: true });
+    });
+    window.addEventListener('pagehide', () => flushTime({ keepalive: true }));
+  }
+
   // ── MAIN INIT ────────────────────────────────────────────────────────────────
   function init() {
     const session = getSession();
@@ -112,17 +211,27 @@
 
     const bar = renderSessionBar(session);
 
-    // Mark lesson as visited (non-scored completion)
+    // Record the open immediately (completed: false), then let engagement
+    // tracking decide whether it becomes a completion. Previously this fired
+    // completed: true on page load, which meant "opened a lesson page" and
+    // "completed a lesson" were the same number in every report.
     if (pageInfo.activity !== 'quiz') {
       saveProgress({
         course: pageInfo.course,
         unit: pageInfo.unit,
         lesson: pageInfo.lesson,
         activity_type: pageInfo.activity,
-        completed: true,
+        completed: false,
       }).then(() => {
-        setBarStatus('\u2713 Progress saved', '#6EE7B7');
+        setBarStatus('Tracking progress\u2026', '#c4b5fd');
       });
+
+      trackEngagement(pageInfo, () => {
+        setBarStatus('\u2713 Lesson complete', '#6EE7B7');
+      });
+    } else {
+      // Quizzes complete on score, but their time on task is still worth having.
+      trackEngagement(pageInfo, null, { autoComplete: false });
     }
 
     // Expose global function for quiz pages to call when quiz completes

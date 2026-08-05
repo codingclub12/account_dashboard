@@ -27,7 +27,14 @@ Go to your Railway project → Variables → Add:
 JWT_SECRET=<generate a long random string - at least 64 chars>
 DB_PATH=/data/progress.db
 PORT=4000
+ADMIN_TOKEN=<random string; gates /api/analytics/*>
+ANALYTICS_SALT=<random string; salts hashed IDs in the export>
+COMPLETION_FIX_DATE=<YYYY-MM-DD you deploy the engagement-threshold tracker>
 ```
+
+`ADMIN_TOKEN` and `ANALYTICS_SALT` are optional but the analytics export is
+unreachable without the first, and falls back to `JWT_SECRET` for the second.
+See [Analytics Notes](#analytics-notes).
 
 To generate a JWT_SECRET:
 ```bash
@@ -131,6 +138,65 @@ GET  /api/student/progress          All progress records
 POST /api/student/progress          Save/update progress record
 POST /api/student/quiz              Submit quiz attempt with score
 ```
+
+### Analytics Export (ADMIN_TOKEN required)
+```
+GET  /api/analytics/students        One row per student, hashed IDs
+GET  /api/analytics/class-days      Class × day activity
+GET  /api/analytics/teacher-funnel  Adoption funnel + per-teacher stall point
+GET  /api/analytics/assessment      CFU / quiz / exercise / lab broken out
+GET  /api/analytics/funnel          Enrolled → opened → completed → attempted → passed
+GET  /api/analytics/retention       Day 1, day 7, week 2, multi-day cohorts
+GET  /api/analytics/summary         All of the above in one JSON payload
+```
+
+All tabular endpoints accept `?format=csv`. All accept `?days=N` or
+`?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: last 30 days).
+
+Authenticate with `Authorization: Bearer $ADMIN_TOKEN` or `?token=`:
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "https://progress.apcsexamprep.com/api/analytics/summary?days=30"
+```
+
+## Analytics Notes
+
+**Identifiers are hashed.** Student, teacher, and class IDs are salted SHA-256
+prefixes. Names, emails, and class codes are never exported — a class code is a
+live join credential, so it is treated as a secret. Hashes are stable across
+exports as long as `ANALYTICS_SALT` doesn't change, so rows can be joined
+between two downloads.
+
+**"Completed" changed meaning.** `apcs-tracker.js` used to fire
+`completed: true` on page load, which made "opened a lesson page" and
+"completed a lesson" the same number. It now records the open as
+`completed: false` and only marks completion after 60 seconds of active time
+and 70% scroll depth (tunable per page via `window.APCS_PAGE.min_seconds` and
+`min_scroll_pct`). Rows written before that change still mean "opened" — set
+`COMPLETION_FIX_DATE` to the deploy date and `/api/analytics/funnel` will report
+the two populations separately instead of mixing them.
+
+**Active-day counts are a lower bound.** `progress` rows are updated in place
+and `students.last_active` is overwritten, so only `quiz_attempts` is truly
+append-only. Anything counting distinct active days — including the retention
+windows — is a floor, and those fields are suffixed `_min`.
+
+**Sessions, referrers, channels, and devices are absent by design.** The
+application does not record them; there is no events table. Those questions
+still need Clarity, and connecting the two would require a shared session
+identifier written on both sides.
+
+## Tests
+
+```bash
+npm test
+```
+
+Boots the real app against a throwaway SQLite database, drives the public API,
+and asserts on migrations, engagement thresholds, time accumulation, every
+analytics endpoint, admin auth, and that no names, emails, or class codes
+appear in the export.
 
 ## Local Development
 

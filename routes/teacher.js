@@ -48,6 +48,9 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, teacher.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
 
+    db.prepare("UPDATE teachers SET last_login = datetime('now'), last_seen = datetime('now') WHERE id = ?")
+      .run(teacher.id);
+
     const token = signTeacherToken(teacher);
     res.json({ token, teacher: { id: teacher.id, email: teacher.email, name: teacher.name, school: teacher.school } });
   } catch (e) {
