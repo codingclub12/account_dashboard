@@ -1,0 +1,229 @@
+<!-- APCSExamPrep Student Progress Dashboard — /pages/my-progress -->
+<style>
+#aprog-wrap{all:initial!important;display:block!important;font-family:'Georgia',serif!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;}
+#aprog-wrap *{box-sizing:border-box!important;font-family:'Georgia',serif!important;}
+.aprog-page{background:#f8f7ff!important;min-height:100vh!important;padding:0 0 60px!important;}
+.aprog-header{background:#1E1B4B!important;padding:20px 24px!important;}
+.aprog-header-inner{max-width:900px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:12px!important;}
+.aprog-student-info .name{font-size:20px!important;font-weight:700!important;color:#fff!important;-webkit-text-fill-color:#fff!important;}
+.aprog-student-info .class-tag{font-size:13px!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;margin-top:2px!important;}
+.aprog-header-actions{display:flex!important;gap:10px!important;align-items:center!important;}
+.aprog-logout{background:transparent!important;border:1px solid #4c1d95!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;padding:7px 14px!important;border-radius:6px!important;font-size:13px!important;cursor:pointer!important;}
+.aprog-body{max-width:900px!important;margin:0 auto!important;padding:28px 20px!important;}
+.aprog-not-logged{text-align:center!important;padding:60px 20px!important;}
+.aprog-not-logged .big{font-size:22px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin-bottom:12px!important;}
+.aprog-not-logged .sub{color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;margin-bottom:24px!important;}
+.aprog-not-logged a{display:inline-block!important;background:#6B21A8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;padding:12px 24px!important;border-radius:8px!important;font-weight:700!important;text-decoration:none!important;}
+.aprog-unit-card{background:#fff!important;border-radius:10px!important;box-shadow:0 2px 12px rgba(107,33,168,.08)!important;margin-bottom:20px!important;overflow:hidden!important;}
+.aprog-unit-header{background:#1E1B4B!important;padding:14px 20px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;}
+.aprog-unit-header .unit-title{color:#fff!important;-webkit-text-fill-color:#fff!important;font-weight:700!important;font-size:16px!important;}
+.aprog-unit-header .unit-pct{color:#E8A020!important;-webkit-text-fill-color:#E8A020!important;font-weight:700!important;font-size:16px!important;}
+.aprog-progress-bar-wrap{height:4px!important;background:#4c1d95!important;}
+.aprog-progress-bar{height:4px!important;background:#E8A020!important;transition:width .4s!important;}
+.aprog-lessons{padding:0 20px 8px!important;}
+.aprog-lesson-row{display:grid!important;grid-template-columns:1fr repeat(4,auto)!important;align-items:center!important;gap:8px!important;padding:12px 0!important;border-bottom:1px solid #f3f4f6!important;}
+.aprog-lesson-row:last-child{border-bottom:none!important;}
+.aprog-lesson-name{font-size:14px!important;font-weight:600!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.aprog-lesson-sub{font-size:12px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;}
+.aprog-act{display:flex!important;flex-direction:column!important;align-items:center!important;gap:3px!important;min-width:52px!important;}
+.aprog-act .act-label{font-size:10px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;text-transform:uppercase!important;letter-spacing:.5px!important;}
+.aprog-act .act-status{width:28px!important;height:28px!important;border-radius:50%!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:13px!important;}
+.act-done{background:#D1FAE5!important;color:#065F46!important;-webkit-text-fill-color:#065F46!important;}
+.act-none{background:#F3F4F6!important;color:#D1D5DB!important;-webkit-text-fill-color:#D1D5DB!important;}
+.aprog-act .act-score{font-size:11px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;font-weight:700!important;}
+.aprog-act a.act-link{text-decoration:none!important;display:block!important;}
+.aprog-loading{text-align:center!important;padding:60px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+.aprog-col-headers{display:grid!important;grid-template-columns:1fr repeat(4,auto)!important;gap:8px!important;padding:8px 20px 4px!important;border-bottom:1px solid #e5e7eb!important;}
+.aprog-col-headers span{font-size:10px!important;font-weight:700!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;text-transform:uppercase!important;letter-spacing:.5px!important;text-align:center!important;min-width:52px!important;}
+.aprog-col-headers span:first-child{text-align:left!important;min-width:auto!important;}
+.aprog-confidence{display:flex!important;gap:3px!important;margin-top:2px!important;}
+.aprog-confidence span{width:8px!important;height:8px!important;border-radius:50%!important;background:#e5e7eb!important;}
+.aprog-confidence span.filled{background:#6B21A8!important;}
+@media(max-width:600px){
+  .aprog-lesson-row{grid-template-columns:1fr!important;}
+  .aprog-col-headers{display:none!important;}
+  .aprog-act{flex-direction:row!important;justify-content:flex-start!important;}
+}
+</style>
+
+<div id="aprog-wrap">
+<div class="aprog-page">
+
+  <!-- NOT LOGGED IN -->
+  <div id="aprog-not-logged" class="aprog-not-logged" style="display:none">
+    <div class="big">Track Your Progress</div>
+    <div class="sub">Join your class to save progress, track scores, and pick up where you left off on any device.</div>
+    <a href="/pages/join">Join or Sign In &rarr;</a>
+  </div>
+
+  <!-- LOGGED IN -->
+  <div id="aprog-main" style="display:none">
+    <div class="aprog-header">
+      <div class="aprog-header-inner">
+        <div class="aprog-student-info">
+          <div class="name" id="aprog-name"></div>
+          <div class="class-tag" id="aprog-class"></div>
+        </div>
+        <div class="aprog-header-actions">
+          <button class="aprog-logout" onclick="AProg.logout()">Sign Out</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="aprog-body">
+      <div id="aprog-loading" class="aprog-loading">Loading your progress&hellip;</div>
+      <div id="aprog-units"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const API = 'https://progress.apcsexamprep.com';
+
+const COURSE_MAP = {
+  'ap-cybersecurity': {
+    label: 'AP Cybersecurity',
+    units: {
+      'unit-1': {
+        label: 'Unit 1: Introduction to Security',
+        lessons: [
+          { id:'1.1', label:'Topic 1.1', name:'Understanding Social Engineering', url:'/pages/ap-cybersecurity-unit-1-social-engineering' },
+          { id:'1.2', label:'Topic 1.2', name:'Suspicious Website Logins', url:'/pages/ap-cybersecurity-unit-1-password-attacks' },
+          { id:'1.3', label:'Topic 1.3', name:'Best Practices for Public Networks', url:'/pages/ap-cybersecurity-unit-1-wireless-security' },
+          { id:'1.4', label:'Topic 1.4', name:'AI-Based Cybersecurity Attacks', url:'/pages/ap-cybersecurity-unit-1-ai-driven-threats' },
+          { id:'1.5', label:'Topic 1.5', name:'Leveraging AI in Cyber Defense', url:'/pages/ap-cybersecurity-unit-1-ai-cyber-defense' },
+        ],
+        activities: ['lesson','exercise-1','exercise-2','quiz'],
+        activityUrls: {
+          'lesson': (lesson) => lesson.url,
+          'exercise-1': (lesson, n) => `/pages/ap-cyber-unit-1-lesson-${n.split('.')[1]}-exercise-1`,
+          'exercise-2': (lesson, n) => `/pages/ap-cyber-unit-1-lesson-${n.split('.')[1]}-exercise-2`,
+          'quiz': (lesson, n) => `/pages/ap-cyber-unit-1-lesson-${n.split('.')[1]}-quiz`,
+        },
+      },
+    },
+  },
+};
+
+const ACT_LABELS = { 'lesson':'Lesson', 'exercise-1':'Ex. 1', 'exercise-2':'Ex. 2', 'quiz':'Quiz' };
+
+window.AProg = {
+  session: null,
+  progressMap: {},
+
+  async init() {
+    const token = localStorage.getItem('apcse_token');
+    const sess = localStorage.getItem('apcse_student');
+    if (!token || !sess) {
+      document.getElementById('aprog-not-logged').style.display = 'block';
+      return;
+    }
+    try { this.session = JSON.parse(sess); } catch { document.getElementById('aprog-not-logged').style.display='block'; return; }
+
+    document.getElementById('aprog-main').style.display = 'block';
+    document.getElementById('aprog-name').textContent = this.session.name;
+    document.getElementById('aprog-class').textContent = 'Class ' + this.session.classCode + ' \u00B7 ' + (this.session.courseName || this.session.course);
+
+    await this.loadProgress(token);
+  },
+
+  async loadProgress(token) {
+    try {
+      const r = await fetch(`${API}/api/student/progress`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (r.status === 401) { this.logout(); return; }
+      const d = await r.json();
+      this.progressMap = d.map || {};
+      this.render();
+    } catch(e) {
+      document.getElementById('aprog-loading').textContent = 'Could not load progress. Check your connection.';
+    }
+  },
+
+  getProgress(course, unit, lesson, activity) {
+    const key = `${course}|${unit}|${lesson}|${activity}`;
+    return this.progressMap[key] || null;
+  },
+
+  render() {
+    const course = this.session.course || 'ap-cybersecurity';
+    const courseCfg = COURSE_MAP[course];
+    if (!courseCfg) { document.getElementById('aprog-loading').textContent = 'Course not found.'; return; }
+
+    document.getElementById('aprog-loading').style.display = 'none';
+    const container = document.getElementById('aprog-units');
+    container.innerHTML = '';
+
+    for (const [unitKey, unitCfg] of Object.entries(courseCfg.units)) {
+      // Calculate unit completion
+      let total = 0, completed = 0;
+      for (const lesson of unitCfg.lessons) {
+        for (const act of unitCfg.activities) {
+          total++;
+          const p = this.getProgress(course, unitKey, lesson.id, act);
+          if (p && p.completed) completed++;
+        }
+      }
+      const pct = total ? Math.round(completed / total * 100) : 0;
+
+      const card = document.createElement('div');
+      card.className = 'aprog-unit-card';
+      card.innerHTML = `
+        <div class="aprog-unit-header">
+          <div class="unit-title">${unitCfg.label}</div>
+          <div class="unit-pct">${pct}% Complete</div>
+        </div>
+        <div class="aprog-progress-bar-wrap">
+          <div class="aprog-progress-bar" style="width:${pct}%"></div>
+        </div>
+        <div class="aprog-col-headers">
+          <span>Lesson</span>
+          ${unitCfg.activities.map(a => `<span>${ACT_LABELS[a]}</span>`).join('')}
+        </div>
+        <div class="aprog-lessons">
+          ${unitCfg.lessons.map(lesson => this.renderLessonRow(course, unitKey, lesson, unitCfg)).join('')}
+        </div>
+      `;
+      container.appendChild(card);
+    }
+  },
+
+  renderLessonRow(course, unitKey, lesson, unitCfg) {
+    const acts = unitCfg.activities.map(act => {
+      const p = this.getProgress(course, unitKey, lesson.id, act);
+      const done = p && p.completed;
+      const score = p && p.score != null ? p.score + '%' : '';
+      const url = (unitCfg.activityUrls && unitCfg.activityUrls[act]) ? unitCfg.activityUrls[act](lesson, lesson.id) : '#';
+      return `
+        <div class="aprog-act">
+          <div class="act-label">${ACT_LABELS[act]}</div>
+          <a href="${url}" class="act-link">
+            <div class="act-status ${done ? 'act-done' : 'act-none'}">${done ? '\u2713' : '\u25CB'}</div>
+          </a>
+          <div class="act-score">${score}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="aprog-lesson-row">
+        <div>
+          <div class="aprog-lesson-name">${lesson.label}: ${lesson.name}</div>
+        </div>
+        ${acts}
+      </div>
+    `;
+  },
+
+  logout() {
+    localStorage.removeItem('apcse_token');
+    localStorage.removeItem('apcse_student');
+    window.location.href = '/pages/join';
+  },
+};
+
+document.addEventListener('DOMContentLoaded', () => AProg.init());
+</script>

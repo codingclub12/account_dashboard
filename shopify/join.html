@@ -1,0 +1,335 @@
+<!-- APCSExamPrep Student Join Page — /pages/join -->
+<style>
+#apjoin-wrap{all:initial!important;display:block!important;font-family:'Georgia',serif!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;}
+#apjoin-wrap *{box-sizing:border-box!important;font-family:'Georgia',serif!important;}
+.apjoin-page{min-height:100vh!important;background:#f8f7ff!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:24px!important;}
+.apjoin-card{background:#fff!important;border-radius:12px!important;box-shadow:0 4px 24px rgba(107,33,168,.12)!important;padding:40px!important;width:100%!important;max-width:440px!important;}
+.apjoin-logo{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:28px!important;}
+.apjoin-logo-dot{width:36px!important;height:36px!important;background:#1E1B4B!important;border-radius:8px!important;display:flex!important;align-items:center!important;justify-content:center!important;}
+.apjoin-logo-dot span{color:#E8A020!important;-webkit-text-fill-color:#E8A020!important;font-weight:700!important;font-size:18px!important;}
+.apjoin-logo-text{font-size:15px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;}
+.apjoin-logo-sub{font-size:12px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;font-weight:400!important;}
+.apjoin-tabs{display:flex!important;border-bottom:2px solid #e5e7eb!important;margin-bottom:28px!important;}
+.apjoin-tab{flex:1!important;padding:10px!important;text-align:center!important;font-size:14px!important;font-weight:600!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;cursor:pointer!important;border:none!important;background:none!important;border-bottom:3px solid transparent!important;margin-bottom:-2px!important;transition:all .2s!important;}
+.apjoin-tab.active{color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;border-bottom-color:#6B21A8!important;}
+.apjoin-step{display:none!important;}
+.apjoin-step.active{display:block!important;}
+.apjoin-label{display:block!important;font-size:13px!important;font-weight:600!important;color:#374151!important;-webkit-text-fill-color:#374151!important;margin-bottom:6px!important;margin-top:16px!important;}
+.apjoin-input{width:100%!important;padding:12px 14px!important;border:2px solid #e5e7eb!important;border-radius:8px!important;font-size:16px!important;color:#1a1a1a!important;-webkit-text-fill-color:#1a1a1a!important;background:#fff!important;outline:none!important;transition:border-color .2s!important;}
+.apjoin-input:focus{border-color:#6B21A8!important;}
+.apjoin-input.big{font-size:24px!important;letter-spacing:4px!important;text-align:center!important;font-weight:700!important;text-transform:uppercase!important;}
+.apjoin-btn{width:100%!important;padding:14px!important;background:#6B21A8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:none!important;border-radius:8px!important;font-size:16px!important;font-weight:700!important;cursor:pointer!important;margin-top:24px!important;transition:background .2s!important;}
+.apjoin-btn:hover{background:#5B1898!important;}
+.apjoin-btn:disabled{background:#c4b5fd!important;cursor:not-allowed!important;}
+.apjoin-error{background:#FEE2E2!important;color:#991b1b!important;-webkit-text-fill-color:#991b1b!important;padding:12px 14px!important;border-radius:8px!important;font-size:14px!important;margin-top:16px!important;display:none!important;}
+.apjoin-success{background:#D1FAE5!important;color:#065F46!important;-webkit-text-fill-color:#065F46!important;padding:16px!important;border-radius:8px!important;font-size:15px!important;margin-top:16px!important;display:none!important;font-weight:600!important;}
+.apjoin-class-preview{background:#EDE9FE!important;border-radius:8px!important;padding:14px 16px!important;margin-top:12px!important;display:none!important;}
+.apjoin-class-preview .cp-name{font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;font-size:16px!important;}
+.apjoin-class-preview .cp-meta{font-size:13px!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;margin-top:4px!important;}
+.apjoin-pin-row{display:flex!important;gap:10px!important;justify-content:center!important;margin-top:8px!important;}
+.apjoin-pin-digit{width:60px!important;height:72px!important;border:2px solid #e5e7eb!important;border-radius:10px!important;font-size:28px!important;font-weight:700!important;text-align:center!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;background:#fff!important;outline:none!important;transition:border-color .2s!important;}
+.apjoin-pin-digit:focus{border-color:#6B21A8!important;}
+.apjoin-hint{font-size:12px!important;color:#9CA3AF!important;-webkit-text-fill-color:#9CA3AF!important;margin-top:8px!important;text-align:center!important;}
+.apjoin-already{text-align:center!important;margin-top:20px!important;font-size:13px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;}
+.apjoin-already a{color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;text-decoration:underline!important;cursor:pointer!important;}
+.apjoin-logged{background:#1E1B4B!important;border-radius:10px!important;padding:20px 24px!important;color:#fff!important;-webkit-text-fill-color:#fff!important;text-align:center!important;display:none!important;}
+.apjoin-logged .lname{font-size:20px!important;font-weight:700!important;margin-bottom:4px!important;}
+.apjoin-logged .lclass{font-size:14px!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;margin-bottom:16px!important;}
+.apjoin-logged .l-prog-btn{display:inline-block!important;background:#E8A020!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;padding:10px 20px!important;border-radius:6px!important;font-weight:700!important;text-decoration:none!important;font-size:14px!important;margin:4px!important;}
+.apjoin-logged .l-out-btn{display:inline-block!important;background:transparent!important;color:#c4b5fd!important;-webkit-text-fill-color:#c4b5fd!important;padding:10px 20px!important;border-radius:6px!important;font-size:13px!important;cursor:pointer!important;border:1px solid #4c1d95!important;margin:4px!important;}
+</style>
+
+<div id="apjoin-wrap">
+<div class="apjoin-page">
+<div class="apjoin-card">
+
+  <!-- Logo -->
+  <div class="apjoin-logo">
+    <div class="apjoin-logo-dot"><span>AP</span></div>
+    <div>
+      <div class="apjoin-logo-text">APCSExamPrep.com</div>
+      <div class="apjoin-logo-sub">Student Class Portal</div>
+    </div>
+  </div>
+
+  <!-- Already logged in state -->
+  <div class="apjoin-logged" id="alreadyLogged">
+    <div class="lname" id="loggedName"></div>
+    <div class="lclass" id="loggedClass"></div>
+    <div>
+      <a class="l-prog-btn" href="/pages/my-progress">View My Progress</a>
+      <span class="l-out-btn" onclick="APJoin.logout()">Sign Out</span>
+    </div>
+  </div>
+
+  <!-- Join / Login tabs -->
+  <div id="joinLoginArea">
+    <div class="apjoin-tabs">
+      <button class="apjoin-tab active" onclick="APJoin.switchTab('join')">Join a Class</button>
+      <button class="apjoin-tab" onclick="APJoin.switchTab('login')">Return Student</button>
+    </div>
+
+    <!-- JOIN STEP 1: Enter class code -->
+    <div class="apjoin-step active" id="step-join-code">
+      <div style="font-size:22px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin-bottom:6px!important;">Join Your Class</div>
+      <div style="font-size:14px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;margin-bottom:4px!important;">Enter the class code your teacher gave you</div>
+
+      <label class="apjoin-label">Class Code</label>
+      <input class="apjoin-input big" id="joinCode" placeholder="CYBER-XXXX" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false">
+
+      <div class="apjoin-class-preview" id="classPreview">
+        <div class="cp-name" id="previewName"></div>
+        <div class="cp-meta" id="previewMeta"></div>
+      </div>
+
+      <div class="apjoin-error" id="joinCodeError"></div>
+      <button class="apjoin-btn" onclick="APJoin.verifyCode()">Continue &rarr;</button>
+    </div>
+
+    <!-- JOIN STEP 2: Name + PIN -->
+    <div class="apjoin-step" id="step-join-details">
+      <div style="font-size:18px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin-bottom:4px!important;">Set Up Your Account</div>
+      <div id="joinClassConfirm" style="font-size:13px!important;color:#6B21A8!important;-webkit-text-fill-color:#6B21A8!important;margin-bottom:4px!important;font-weight:600!important;"></div>
+
+      <label class="apjoin-label">Your Display Name</label>
+      <input class="apjoin-input" id="joinName" placeholder="e.g. Avery M." maxlength="50">
+      <div class="apjoin-hint">Use your first name + last initial so your teacher recognizes you</div>
+
+      <label class="apjoin-label" style="margin-top:20px!important;">Choose a 4-Digit PIN</label>
+      <div class="apjoin-pin-row">
+        <input class="apjoin-pin-digit" id="p1" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="p2" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="p3" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="p4" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+      </div>
+      <div class="apjoin-hint">Remember this PIN &mdash; you'll use it to log back in on any device</div>
+
+      <div class="apjoin-error" id="joinDetailsError"></div>
+      <button class="apjoin-btn" onclick="APJoin.completeJoin()">Join Class</button>
+      <div class="apjoin-already"><a onclick="APJoin.goBack()">&#8592; Back</a></div>
+    </div>
+
+    <!-- LOGIN TAB -->
+    <div class="apjoin-step" id="step-login">
+      <div style="font-size:22px!important;font-weight:700!important;color:#1E1B4B!important;-webkit-text-fill-color:#1E1B4B!important;margin-bottom:6px!important;">Welcome Back</div>
+      <div style="font-size:14px!important;color:#6B7280!important;-webkit-text-fill-color:#6B7280!important;margin-bottom:4px!important;">Sign in to resume where you left off</div>
+
+      <label class="apjoin-label">Class Code</label>
+      <input class="apjoin-input big" id="loginCode" placeholder="CYBER-XXXX" maxlength="10" autocapitalize="characters" spellcheck="false">
+
+      <label class="apjoin-label">Your Name</label>
+      <input class="apjoin-input" id="loginName" placeholder="Your display name" maxlength="50">
+
+      <label class="apjoin-label">PIN</label>
+      <div class="apjoin-pin-row">
+        <input class="apjoin-pin-digit" id="lp1" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="lp2" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="lp3" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+        <input class="apjoin-pin-digit" id="lp4" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]">
+      </div>
+
+      <div class="apjoin-error" id="loginError"></div>
+      <button class="apjoin-btn" onclick="APJoin.doLogin()">Sign In</button>
+
+      <div class="apjoin-already">First time? <a onclick="APJoin.switchTab('join')">Join your class</a></div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div class="apjoin-step" id="step-success">
+      <div class="apjoin-success" id="successMsg" style="display:block!important;"></div>
+      <a class="apjoin-btn" href="/pages/my-progress" style="display:block!important;text-align:center!important;text-decoration:none!important;margin-top:16px!important;">View My Progress &rarr;</a>
+    </div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<script>
+const API = 'https://progress.apcsexamprep.com';
+
+window.APJoin = {
+  currentCode: '',
+  currentTab: 'join',
+
+  init() {
+    // Check if already logged in
+    const session = this.getSession();
+    if (session) {
+      document.getElementById('alreadyLogged').style.display = 'block';
+      document.getElementById('joinLoginArea').style.display = 'none';
+      document.getElementById('loggedName').textContent = session.name;
+      document.getElementById('loggedClass').textContent = 'Class ' + session.classCode + ' \u00B7 ' + session.courseName;
+    }
+    this.setupPinInputs('p1','p2','p3','p4');
+    this.setupPinInputs('lp1','lp2','lp3','lp4');
+
+    // Auto-fill class code from URL param
+    const urlCode = new URLSearchParams(window.location.search).get('code');
+    if (urlCode) {
+      const el = document.getElementById('joinCode');
+      if (el) { el.value = urlCode.toUpperCase(); this.verifyCode(); }
+    }
+
+    // Format class code inputs as user types
+    ['joinCode','loginCode'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        el.value = el.value.toUpperCase().replace(/[^A-Z0-9-]/g,'');
+      });
+    });
+  },
+
+  setupPinInputs(...ids) {
+    ids.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        el.value = el.value.replace(/\D/,'').slice(-1);
+        if (el.value && i < ids.length - 1) document.getElementById(ids[i+1]).focus();
+      });
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !el.value && i > 0) document.getElementById(ids[i-1]).focus();
+      });
+    });
+  },
+
+  getPin(...ids) {
+    return ids.map(id => document.getElementById(id)?.value || '').join('');
+  },
+
+  switchTab(tab) {
+    this.currentTab = tab;
+    document.querySelectorAll('.apjoin-tab').forEach((t,i) => {
+      t.classList.toggle('active', (tab === 'join' && i === 0) || (tab === 'login' && i === 1));
+    });
+    document.querySelectorAll('.apjoin-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(tab === 'join' ? 'step-join-code' : 'step-login').classList.add('active');
+  },
+
+  async verifyCode() {
+    const code = document.getElementById('joinCode').value.trim().toUpperCase();
+    if (!code) return this.showError('joinCodeError', 'Please enter your class code');
+    const preview = document.getElementById('classPreview');
+    preview.style.display = 'none';
+    try {
+      const r = await fetch(`${API}/api/class/${code}/exists`);
+      const d = await r.json();
+      if (!d.exists) return this.showError('joinCodeError', 'Class code not found. Double-check with your teacher.');
+      this.currentCode = code;
+      document.getElementById('previewName').textContent = d.class_name;
+      document.getElementById('previewMeta').textContent = 'Course: ' + this.formatCourse(d.course) + ' \u00B7 ' + d.student_count + ' students';
+      preview.style.display = 'block';
+      this.hideError('joinCodeError');
+      // Move to next step after brief pause
+      setTimeout(() => {
+        document.getElementById('step-join-code').classList.remove('active');
+        document.getElementById('step-join-details').classList.add('active');
+        document.getElementById('joinClassConfirm').textContent = '\u2713 ' + d.class_name;
+        document.getElementById('joinName').focus();
+      }, 500);
+    } catch(e) {
+      this.showError('joinCodeError', 'Could not reach server. Try again.');
+    }
+  },
+
+  async completeJoin() {
+    const name = document.getElementById('joinName').value.trim();
+    const pin = this.getPin('p1','p2','p3','p4');
+    if (!name) return this.showError('joinDetailsError', 'Please enter your display name');
+    if (pin.length !== 4) return this.showError('joinDetailsError', 'Please enter a 4-digit PIN');
+
+    const btn = document.querySelector('#step-join-details .apjoin-btn');
+    btn.disabled = true; btn.textContent = 'Joining\u2026';
+
+    try {
+      const r = await fetch(`${API}/api/student/join`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ class_code: this.currentCode, display_name: name, pin }),
+      });
+      const d = await r.json();
+      if (!r.ok) { btn.disabled = false; btn.textContent = 'Join Class'; return this.showError('joinDetailsError', d.error); }
+
+      this.saveSession(d.token, d.student, d.class);
+      document.querySelectorAll('.apjoin-step').forEach(s => s.classList.remove('active'));
+      document.getElementById('step-success').classList.add('active');
+      document.getElementById('successMsg').innerHTML = '\u2713 You\'re in! Welcome to <strong>' + d.class.name + '</strong>, ' + d.student.name + '.<br><br>Your PIN is <strong>' + pin + '</strong> &mdash; remember it to log back in on any device.';
+    } catch(e) {
+      btn.disabled = false; btn.textContent = 'Join Class';
+      this.showError('joinDetailsError', 'Connection error. Try again.');
+    }
+  },
+
+  async doLogin() {
+    const code = document.getElementById('loginCode').value.trim().toUpperCase();
+    const name = document.getElementById('loginName').value.trim();
+    const pin = this.getPin('lp1','lp2','lp3','lp4');
+    if (!code || !name || pin.length !== 4) return this.showError('loginError', 'Please fill in all fields');
+
+    const btn = document.querySelector('#step-login .apjoin-btn');
+    btn.disabled = true; btn.textContent = 'Signing in\u2026';
+
+    try {
+      const r = await fetch(`${API}/api/student/login`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ class_code: code, display_name: name, pin }),
+      });
+      const d = await r.json();
+      if (!r.ok) { btn.disabled = false; btn.textContent = 'Sign In'; return this.showError('loginError', d.error); }
+
+      this.saveSession(d.token, d.student, d.class);
+      document.querySelectorAll('.apjoin-step').forEach(s => s.classList.remove('active'));
+      document.getElementById('step-success').classList.add('active');
+      document.getElementById('successMsg').innerHTML = '\u2713 Welcome back, <strong>' + d.student.name + '</strong>! Your progress is saved and ready.';
+    } catch(e) {
+      btn.disabled = false; btn.textContent = 'Sign In';
+      this.showError('loginError', 'Connection error. Try again.');
+    }
+  },
+
+  saveSession(token, student, cls) {
+    localStorage.setItem('apcse_token', token);
+    localStorage.setItem('apcse_student', JSON.stringify({
+      id: student.id, name: student.name,
+      classCode: cls.code, className: cls.name, course: cls.course,
+      courseName: this.formatCourse(cls.course),
+    }));
+  },
+
+  getSession() {
+    try {
+      const s = localStorage.getItem('apcse_student');
+      const t = localStorage.getItem('apcse_token');
+      if (!s || !t) return null;
+      return JSON.parse(s);
+    } catch { return null; }
+  },
+
+  logout() {
+    localStorage.removeItem('apcse_token');
+    localStorage.removeItem('apcse_student');
+    location.reload();
+  },
+
+  goBack() {
+    document.getElementById('step-join-details').classList.remove('active');
+    document.getElementById('step-join-code').classList.add('active');
+  },
+
+  formatCourse(c) {
+    return {
+      'ap-cybersecurity': 'AP Cybersecurity',
+      'ap-csa': 'AP Computer Science A',
+      'ap-csp': 'AP Computer Science Principles',
+    }[c] || c;
+  },
+
+  showError(id, msg) { const el = document.getElementById(id); if(el){el.textContent=msg;el.style.display='block';} },
+  hideError(id) { const el = document.getElementById(id); if(el){el.style.display='none';} },
+};
+
+document.addEventListener('DOMContentLoaded', () => APJoin.init());
+</script>
